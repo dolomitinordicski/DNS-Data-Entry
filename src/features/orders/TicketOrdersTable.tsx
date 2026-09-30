@@ -1,12 +1,19 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   cloneOrderDraft,
   ticketOrderDraft2026,
   wristbandOrderDraft2026,
 } from '../../config/orders2026';
+import {
+  loadPersistedOrderMatrix,
+  savePersistedOrderMatrix,
+} from '../../services/orders';
+import type { DNSAccessContext } from '../../types/access';
+import type { CanonicalRecord } from '../../types/master';
 import type {
   OrderMatrixCategory,
   OrderMatrixDraft,
+  PersistedOrderMatrix,
 } from '../../types/orderMatrix';
 
 type Language = 'de' | 'it';
@@ -15,6 +22,9 @@ interface Props {
   language: Language;
   seasonId: string;
   canWrite: boolean;
+  developmentMode: boolean;
+  access: DNSAccessContext | null;
+  organizations: CanonicalRecord[];
 }
 
 const copy = {
@@ -25,14 +35,25 @@ const copy = {
     wristbands: 'Armbänder',
     tickets: 'Wochen- & Saisonkarten',
     source: 'Quelle: ALL TICKETS 2026-27.xlsx',
-    browserDraft: 'Browser-Entwurf · noch nicht in Firestore gespeichert',
+    localDraft: 'DEV MODE · lokaler Browser-Entwurf',
+    live: 'DNS_Core · Firestore live',
     readOnly: 'Nur Lesen',
     total: 'Gesamt',
-    sourceTotal: 'Drive-Stand',
-    blankInfo: 'Leere Zellen aus der Quelldatei bleiben leer; 0 bleibt eine explizite Null.',
+    sourceTotal: 'Import-Referenz',
+    blankInfo: 'Leere Zellen bleiben ohne Datensatz; 0 wird als explizite Null gespeichert.',
     reset: 'Auf Drive-Stand zurücksetzen',
+    reload: 'Neu aus Firestore laden',
+    save: 'Speichern',
+    saving: 'Speichert…',
+    saved: 'Firestore synchronisiert',
+    dirty: 'Nicht gespeicherte Änderungen',
     orderedVsSold: 'Bestellt ≠ verkauft',
     organization: 'Organisation',
+    legend: 'Farb-Legende 2026/27',
+    legendNote:
+      'Die Farben sind saisonal fixiert und können in anderen Jahren wechseln. Die Bildschirmfarben dienen als visuelle Orientierung; die Lieferantenreferenz ist maßgeblich.',
+    loading: 'Bestellungen werden aus DNS_Core geladen…',
+    error: 'Bestelldaten konnten nicht geladen oder gespeichert werden.',
   },
   it: {
     title: 'Ordini biglietti',
@@ -41,14 +62,25 @@ const copy = {
     wristbands: 'Braccialetti',
     tickets: 'Settimanali & stagionali',
     source: 'Fonte: ALL TICKETS 2026-27.xlsx',
-    browserDraft: 'Bozza nel browser · non ancora salvata in Firestore',
+    localDraft: 'DEV MODE · bozza locale nel browser',
+    live: 'DNS_Core · Firestore live',
     readOnly: 'Sola lettura',
     total: 'Totale',
-    sourceTotal: 'Valore Drive',
-    blankInfo: 'Le celle vuote del file sorgente restano vuote; 0 resta uno zero esplicito.',
+    sourceTotal: 'Riferimento import',
+    blankInfo: 'Le celle vuote restano senza record; 0 viene salvato come zero esplicito.',
     reset: 'Ripristina valori Drive',
+    reload: 'Ricarica da Firestore',
+    save: 'Salva',
+    saving: 'Salvataggio…',
+    saved: 'Firestore sincronizzato',
+    dirty: 'Modifiche non salvate',
     orderedVsSold: 'Ordinato ≠ venduto',
     organization: 'Organizzazione',
+    legend: 'Legenda colori 2026/27',
+    legendNote:
+      'I colori sono fissati per stagione e possono cambiare negli anni successivi. I colori a schermo sono solo orientativi; fa fede il riferimento del fornitore.',
+    loading: 'Caricamento ordini da DNS_Core…',
+    error: 'Impossibile caricare o salvare i dati degli ordini.',
   },
 } as const;
 
@@ -61,7 +93,7 @@ function storageKey(category: OrderMatrixCategory) {
   return `dns-order-draft-2026-27-${category}`;
 }
 
-function loadDraft(category: OrderMatrixCategory): OrderMatrixDraft {
+function loadDevDraft(category: OrderMatrixCategory): OrderMatrixDraft {
   const source =
     category === 'wristband' ? wristbandOrderDraft2026 : ticketOrderDraft2026;
 
@@ -75,36 +107,156 @@ function loadDraft(category: OrderMatrixCategory): OrderMatrixDraft {
   return cloneOrderDraft(source);
 }
 
+function devMatrix(category: OrderMatrixCategory): PersistedOrderMatrix {
+  return {
+    draft: loadDevDraft(category),
+    persistedOrderIds: new Set<string>(),
+    persistedLineIds: new Set<string>(),
+  };
+}
+
 function formatNumber(value: number, language: Language) {
   return value.toLocaleString(language === 'de' ? 'de-DE' : 'it-IT');
 }
 
-export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
+function orgAreaIds(org: CanonicalRecord) {
+  return Array.isArray(org.reportingAreaIds)
+    ? org.reportingAreaIds.filter((value): value is string => typeof value === 'string')
+    : [];
+}
+
+function getVisibleOrganizationIds(
+  developmentMode: boolean,
+  access: DNSAccessContext | null,
+  organizations: CanonicalRecord[],
+) {
+  const all = new Set(organizations.map((organization) => organization.id));
+
+  if (developmentMode || access?.isAdmin) return all;
+  if (!access?.profile?.active) return new Set<string>();
+
+  const visible = new Set<string>();
+
+  for (const grant of access.grants) {
+    if (!grant.active || !grant.permissions.includes('ticketOrders.read')) continue;
+
+    if (grant.scopeType === 'network') return all;
+
+    if (grant.scopeType === 'organization') {
+      visible.add(grant.scopeId);
+      continue;
+    }
+
+    if (grant.scopeType === 'reportingArea') {
+      organizations
+        .filter((organization) => orgAreaIds(organization).includes(grant.scopeId))
+        .forEach((organization) => visible.add(organization.id));
+    }
+  }
+
+  return visible;
+}
+
+export function TicketOrdersTable({
+  language,
+  seasonId,
+  canWrite,
+  developmentMode,
+  access,
+  organizations,
+}: Props) {
   const t = copy[language];
   const [category, setCategory] = useState<OrderMatrixCategory>('wristband');
-  const [wristbandDraft, setWristbandDraft] = useState(() => loadDraft('wristband'));
-  const [ticketDraft, setTicketDraft] = useState(() => loadDraft('ticket'));
+  const [matrices, setMatrices] = useState<
+    Partial<Record<OrderMatrixCategory, PersistedOrderMatrix>>
+  >({});
+  const [dirty, setDirty] = useState<Record<OrderMatrixCategory, boolean>>({
+    wristband: false,
+    ticket: false,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
 
-  const draft = category === 'wristband' ? wristbandDraft : ticketDraft;
-  const setDraft = category === 'wristband' ? setWristbandDraft : setTicketDraft;
+  const visibleOrganizationIds = useMemo(
+    () => getVisibleOrganizationIds(developmentMode, access, organizations),
+    [developmentMode, access, organizations],
+  );
+
+  const organizationAreaById = useMemo(
+    () =>
+      Object.fromEntries(
+        organizations.map((organization) => [
+          organization.id,
+          orgAreaIds(organization)[0],
+        ]),
+      ) as Record<string, string | undefined>,
+    [organizations],
+  );
+
+  async function loadAll() {
+    setLoading(true);
+    setError(false);
+
+    try {
+      if (developmentMode) {
+        setMatrices({
+          wristband: devMatrix('wristband'),
+          ticket: devMatrix('ticket'),
+        });
+        setDirty({ wristband: false, ticket: false });
+        return;
+      }
+
+      const [wristband, ticket] = await Promise.all([
+        loadPersistedOrderMatrix({
+          seasonId,
+          category: 'wristband',
+          visibleOrganizationIds,
+          organizationAreaById,
+        }),
+        loadPersistedOrderMatrix({
+          seasonId,
+          category: 'ticket',
+          visibleOrganizationIds,
+          organizationAreaById,
+        }),
+      ]);
+
+      setMatrices({ wristband, ticket });
+      setDirty({ wristband: false, ticket: false });
+    } catch (reason) {
+      console.error('Order matrix load failed', reason);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void loadAll();
+  }, [seasonId, developmentMode, access]);
+
+  const current = matrices[category];
+  const draft = current?.draft;
 
   const quantities = useMemo(
     () =>
       new Map(
-        draft.cells.map((cell) => [
+        (draft?.cells ?? []).map((cell) => [
           `${cell.organizationId}::${cell.itemId}`,
           cell.quantity,
         ]),
       ),
-    [draft.cells],
+    [draft?.cells],
   );
 
   const rowTotals = useMemo(
     () =>
       new Map(
-        draft.organizations.map((organization) => [
+        (draft?.organizations ?? []).map((organization) => [
           organization.organizationId,
-          draft.items.reduce(
+          (draft?.items ?? []).reduce(
             (sum, item) =>
               sum +
               (quantities.get(`${organization.organizationId}::${item.id}`) ?? 0),
@@ -118,9 +270,9 @@ export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
   const columnTotals = useMemo(
     () =>
       new Map(
-        draft.items.map((item) => [
+        (draft?.items ?? []).map((item) => [
           item.id,
-          draft.organizations.reduce(
+          (draft?.organizations ?? []).reduce(
             (sum, organization) =>
               sum +
               (quantities.get(`${organization.organizationId}::${item.id}`) ?? 0),
@@ -138,28 +290,79 @@ export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
     itemId: string,
     quantity: number | null,
   ) {
-    if (!canWrite) return;
+    if (!canWrite || !current) return;
 
-    const next: OrderMatrixDraft = {
-      ...draft,
-      cells: draft.cells.map((cell) =>
+    const nextDraft: OrderMatrixDraft = {
+      ...current.draft,
+      cells: current.draft.cells.map((cell) =>
         cell.organizationId === organizationId && cell.itemId === itemId
           ? { ...cell, quantity }
           : cell,
       ),
     };
 
-    setDraft(next);
-    sessionStorage.setItem(storageKey(category), JSON.stringify(next));
+    setMatrices((state) => ({
+      ...state,
+      [category]: { ...current, draft: nextDraft },
+    }));
+    setDirty((state) => ({ ...state, [category]: true }));
+
+    if (developmentMode) {
+      sessionStorage.setItem(storageKey(category), JSON.stringify(nextDraft));
+    }
   }
 
-  function resetToSource() {
-    if (!canWrite) return;
+  async function saveCurrent() {
+    if (!current || !canWrite || developmentMode || !dirty[category]) return;
+
+    setSaving(true);
+    setError(false);
+    try {
+      await savePersistedOrderMatrix({
+        draft: current.draft,
+        persistedOrderIds: current.persistedOrderIds,
+        persistedLineIds: current.persistedLineIds,
+      });
+      await loadAll();
+    } catch (reason) {
+      console.error('Order matrix save failed', reason);
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function resetDevToSource() {
+    if (!developmentMode || !canWrite) return;
     const source =
       category === 'wristband' ? wristbandOrderDraft2026 : ticketOrderDraft2026;
     const next = cloneOrderDraft(source);
-    setDraft(next);
+    setMatrices((state) => ({
+      ...state,
+      [category]: {
+        draft: next,
+        persistedOrderIds: new Set<string>(),
+        persistedLineIds: new Set<string>(),
+      },
+    }));
+    setDirty((state) => ({ ...state, [category]: false }));
     sessionStorage.removeItem(storageKey(category));
+  }
+
+  if (loading && !draft) {
+    return (
+      <section className="dns-card p-6">
+        <div className="dns-kicker">{t.loading}</div>
+      </section>
+    );
+  }
+
+  if (!draft) {
+    return (
+      <section className="dns-card p-6">
+        <div className="dns-section-title">{t.error}</div>
+      </section>
+    );
   }
 
   return (
@@ -177,6 +380,9 @@ export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
 
             <div className="flex flex-wrap items-center gap-2">
               <span className="dns-pill">{t.orderedVsSold}</span>
+              <span className="dns-pill">
+                {developmentMode ? t.localDraft : t.live}
+              </span>
               {!canWrite && <span className="dns-pill">{t.readOnly}</span>}
             </div>
           </div>
@@ -207,6 +413,37 @@ export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
         </div>
       </section>
 
+      {category === 'wristband' && (
+        <section className="dns-card p-5 md:p-6">
+          <div className="dns-section-title">{t.legend}</div>
+          <p className="mt-2 max-w-5xl font-alt text-[10px] leading-relaxed text-dns-muted">
+            {t.legendNote}
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+            {draft.items.map((item) => (
+              <div key={item.id} className="overflow-hidden rounded-md border border-dns-mid/15 bg-white">
+                <div
+                  className="flex h-10 items-center justify-center px-2 text-[10px] font-bold uppercase tracking-[.04em]"
+                  style={{
+                    backgroundColor: item.displayColorHex ?? '#FFFFFF',
+                    color: item.displayTextColorHex ?? '#111111',
+                    boxShadow:
+                      item.displayColorHex?.toUpperCase() === '#FFFFFF'
+                        ? 'inset 0 0 0 1px rgba(13,77,94,.18)'
+                        : undefined,
+                  }}
+                >
+                  {item.label[language]}
+                </div>
+                <div className="px-2 py-2 text-center font-alt text-[9px] text-dns-muted">
+                  {item.supplierColorReference ?? '—'}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="grid gap-4 md:grid-cols-3">
         <div className="dns-card p-4 md:p-5">
           <div className="dns-kicker">{t.total}</div>
@@ -223,7 +460,11 @@ export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
         <div className="dns-card p-4 md:p-5">
           <div className="dns-kicker">{t.source}</div>
           <div className="mt-2 font-alt text-[11px] leading-relaxed text-dns-muted">
-            {t.browserDraft}
+            {developmentMode
+              ? t.localDraft
+              : dirty[category]
+                ? t.dirty
+                : t.saved}
           </div>
         </div>
       </section>
@@ -233,16 +474,47 @@ export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
           <p className="font-alt text-[10px] leading-relaxed text-dns-muted">
             {t.blankInfo}
           </p>
-          {canWrite && (
-            <button
-              type="button"
-              onClick={resetToSource}
-              className="self-start border-0 border-b border-dns-mid/40 bg-transparent px-0 py-1 text-[10px] font-bold uppercase tracking-[.05em] text-dns-mid hover:border-dns-deep hover:text-dns-deep md:self-auto"
-            >
-              {t.reset}
-            </button>
-          )}
+          <div className="flex flex-wrap gap-3">
+            {developmentMode ? (
+              canWrite && (
+                <button
+                  type="button"
+                  onClick={resetDevToSource}
+                  className="border-0 border-b border-dns-mid/40 bg-transparent px-0 py-1 text-[10px] font-bold uppercase tracking-[.05em] text-dns-mid hover:border-dns-deep hover:text-dns-deep"
+                >
+                  {t.reset}
+                </button>
+              )
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void loadAll()}
+                  disabled={loading || saving}
+                  className="border-0 border-b border-dns-mid/40 bg-transparent px-0 py-1 text-[10px] font-bold uppercase tracking-[.05em] text-dns-mid hover:border-dns-deep hover:text-dns-deep disabled:opacity-40"
+                >
+                  {t.reload}
+                </button>
+                {canWrite && (
+                  <button
+                    type="button"
+                    onClick={() => void saveCurrent()}
+                    disabled={!dirty[category] || saving}
+                    className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white transition hover:bg-dns-mid disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {saving ? t.saving : t.save}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
         </div>
+
+        {error && (
+          <div className="border-b border-red-200 bg-red-50 px-5 py-3 font-alt text-[11px] text-red-800">
+            {t.error}
+          </div>
+        )}
 
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1180px] border-collapse">
@@ -253,6 +525,12 @@ export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
                 </th>
                 {draft.items.map((item) => (
                   <th key={item.id} className="min-w-[118px] px-3 py-3 text-center">
+                    {category === 'wristband' && (
+                      <span
+                        className="mx-auto mb-2 block h-2 w-14 rounded-full border border-black/10"
+                        style={{ backgroundColor: item.displayColorHex ?? '#FFFFFF' }}
+                      />
+                    )}
                     <span className="block whitespace-normal leading-tight">
                       {item.label[language]}
                     </span>
@@ -288,7 +566,7 @@ export function TicketOrdersTable({ language, seasonId, canWrite }: Props) {
                           type="number"
                           min="0"
                           step="1"
-                          disabled={!canWrite}
+                          disabled={!canWrite || saving}
                           value={value ?? ''}
                           onChange={(event) =>
                             updateQuantity(
