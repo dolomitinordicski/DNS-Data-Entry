@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { User } from 'firebase/auth';
 import logoUrl from '../logo1.png';
+import { MODULE_READ_PERMISSION } from './config/access';
 import { modules, type ModuleId } from './config/modules';
 import { createInitialPricingDraft } from './config/pricing';
+import { LoginScreen } from './features/auth/LoginScreen';
 import { PricingSetup } from './features/pricing/PricingSetup';
 import { SeasonSetup } from './features/season/SeasonSetup';
+import {
+  loadAccessContext,
+  signOut as dnsSignOut,
+  subscribeToAuth,
+} from './services/auth';
 import { loadDNSCoreMaster } from './services/dnsCore';
 import { loadAndApplyDNSDesignSystem } from './services/designSystem';
+import type { DNSAccessContext } from './types/access';
 import type { DNSCoreMaster } from './types/master';
 import type { PricingDraftRow } from './types/pricing';
 
@@ -29,6 +38,14 @@ const copy = {
       'XGLA4 bleibt das offizielle Buchhaltungssystem. DNS Data Entry bildet Bestellungen und Billing Preparation als operative Vorstufe ab.',
     footerMain: 'Dolomiti NordicSki · DNS Data Entry',
     footerSub: 'Saisonale Operationsdaten · DNS_Core',
+    signOut: 'Abmelden',
+    noAccessTitle: 'Kein Zugriff freigeschaltet',
+    noAccess:
+      'Das Konto ist authentifiziert, hat aber noch kein aktives DNS-Benutzerprofil bzw. keine gültigen Zugriffsrechte.',
+    authLoading: 'Zugriff wird geprüft…',
+    admin: 'DNS Admin',
+    scoped: 'Freigeschalteter Benutzer',
+    readOnly: 'Nur Lesen',
   },
   it: {
     operations: 'Operazioni',
@@ -46,6 +63,14 @@ const copy = {
       'XGLA4 resta il sistema contabile ufficiale. DNS Data Entry gestisce ordini e Billing Preparation come fase operativa a monte.',
     footerMain: 'Dolomiti NordicSki · DNS Data Entry',
     footerSub: 'Dati operativi stagionali · DNS_Core',
+    signOut: 'Esci',
+    noAccessTitle: 'Accesso non abilitato',
+    noAccess:
+      'L’account è autenticato, ma non dispone ancora di un profilo DNS attivo o di autorizzazioni valide.',
+    authLoading: 'Verifica accesso…',
+    admin: 'DNS Admin',
+    scoped: 'Utente abilitato',
+    readOnly: 'Sola lettura',
   },
 } as const;
 
@@ -55,11 +80,40 @@ function App() {
   const [master, setMaster] = useState<DNSCoreMaster | null>(null);
   const [connection, setConnection] = useState<ConnectionState>('loading');
   const [pricingRows, setPricingRows] = useState<PricingDraftRow[]>([]);
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [access, setAccess] = useState<DNSAccessContext | null>(null);
 
   const t = copy[language];
 
   useEffect(() => {
     void loadAndApplyDNSDesignSystem();
+  }, []);
+
+  useEffect(() => {
+    return subscribeToAuth((user) => {
+      setAuthReady(false);
+      setAuthUser(user);
+      setAccess(null);
+
+      if (!user) {
+        setAuthReady(true);
+        return;
+      }
+
+      loadAccessContext(user.uid)
+        .then((context) => {
+          setAccess(context);
+          if (context.profile?.preferredLanguage === 'de' || context.profile?.preferredLanguage === 'it') {
+            setLanguage(context.profile.preferredLanguage);
+          }
+        })
+        .catch((error) => {
+          console.error('DNS authorization context failed', error);
+          setAccess(null);
+        })
+        .finally(() => setAuthReady(true));
+    });
   }, []);
 
   useEffect(() => {
@@ -91,7 +145,76 @@ function App() {
     );
   }, [master, activeSeason]);
 
-  const active = modules.find((module) => module.id === activeModule)!;
+  const allowedModules = useMemo(
+    () =>
+      access
+        ? modules.filter((module) =>
+            access.permissions.has(MODULE_READ_PERMISSION[module.id]),
+          )
+        : [],
+    [access],
+  );
+
+  useEffect(() => {
+    if (!allowedModules.length) return;
+    if (!allowedModules.some((module) => module.id === activeModule)) {
+      setActiveModule(allowedModules[0].id);
+    }
+  }, [allowedModules, activeModule]);
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-dns-bg">
+        <div className="dns-kicker">{t.authLoading}</div>
+      </div>
+    );
+  }
+
+  if (!authUser) {
+    return <LoginScreen language={language} onLanguageChange={setLanguage} />;
+  }
+
+  const hasAccess =
+    access?.profile?.active === true &&
+    (access.isAdmin || access.permissions.size > 0);
+
+  if (!hasAccess) {
+    return (
+      <div className="flex min-h-screen flex-col bg-dns-bg">
+        <header className="bg-dns-deep text-white">
+          <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3.5 md:px-8">
+            <div className="flex items-center gap-4">
+              <img src={logoUrl} alt="Dolomiti NordicSki" className="h-10 w-auto" />
+              <div className="text-[22px] uppercase tracking-[.035em]">
+                <strong>DNS</strong> <span className="font-normal">DATA ENTRY</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => void dnsSignOut()}
+              className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white"
+            >
+              {t.signOut}
+            </button>
+          </div>
+        </header>
+        <main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-12 md:px-8">
+          <section className="dns-card p-6 md:p-8">
+            <div className="dns-kicker">{authUser.email ?? authUser.uid}</div>
+            <h1 className="mt-1 text-[26px] font-semibold">{t.noAccessTitle}</h1>
+            <p className="mt-3 font-alt text-[12px] leading-relaxed text-dns-muted">
+              {t.noAccess}
+            </p>
+          </section>
+        </main>
+      </div>
+    );
+  }
+
+  const active =
+    allowedModules.find((module) => module.id === activeModule) ??
+    allowedModules[0];
+  const canManagePricing = access.permissions.has('pricing.manage');
 
   return (
     <div className="flex min-h-screen flex-col bg-dns-bg">
@@ -114,28 +237,42 @@ function App() {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="flex rounded-md border border-white/20 bg-white/5 p-0.5">
+            <div className="hidden text-right md:block">
+              <div className="font-alt text-[10px] text-white/75">
+                {authUser.email ?? authUser.uid}
+              </div>
+              <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[.06em] text-dns-light">
+                {access.isAdmin ? t.admin : t.scoped}
+              </div>
+            </div>
+
+            <div className="flex gap-3 text-[10px] font-bold uppercase tracking-[.06em]">
               {(['de', 'it'] as const).map((lang) => (
                 <button
                   key={lang}
                   type="button"
                   onClick={() => setLanguage(lang)}
                   className={[
-                    'rounded px-2.5 py-1 text-[10px] font-bold uppercase tracking-[.06em] transition',
-                    language === lang
-                      ? 'bg-white text-dns-deep'
-                      : 'text-white/65 hover:text-white',
+                    'border-0 border-b-2 bg-transparent px-1 py-1 text-white transition',
+                    language === lang ? 'border-white' : 'border-transparent opacity-60',
                   ].join(' ')}
-                  aria-pressed={language === lang}
                 >
                   {lang.toUpperCase()}
                 </button>
               ))}
             </div>
 
+            <button
+              type="button"
+              onClick={() => void dnsSignOut()}
+              className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white/80 hover:text-white"
+            >
+              {t.signOut}
+            </button>
+
             <div
               className={[
-                'hidden items-center gap-2 text-[10px] font-semibold uppercase tracking-[.05em] sm:flex',
+                'hidden items-center gap-2 text-[10px] font-semibold uppercase tracking-[.05em] xl:flex',
                 connection === 'ready' ? 'text-[#d8f0e7]' : '',
                 connection === 'error' ? 'text-[#ffd7d0]' : 'text-white/65',
               ].join(' ')}
@@ -162,7 +299,7 @@ function App() {
           <div className="dns-tab-season">
             WS {String(activeSeason?.id ?? '2026-27')}
           </div>
-          {modules.map((module) => (
+          {allowedModules.map((module) => (
             <button
               key={module.id}
               type="button"
@@ -189,9 +326,14 @@ function App() {
                   {active.label[language]}
                 </h1>
               </div>
-              <span className="dns-pill">
-                {activeSeason ? `${t.activeSeason} · ${activeSeason.id}` : t.loadingSeason}
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                {activeModule === 'pricing' && !canManagePricing && (
+                  <span className="dns-pill">{t.readOnly}</span>
+                )}
+                <span className="dns-pill">
+                  {activeSeason ? `${t.activeSeason} · ${activeSeason.id}` : t.loadingSeason}
+                </span>
+              </div>
             </div>
           </section>
 
@@ -207,6 +349,7 @@ function App() {
               organizations={master.organizations}
               rows={pricingRows}
               onChange={setPricingRows}
+              readOnly={!canManagePricing}
             />
           )}
 
