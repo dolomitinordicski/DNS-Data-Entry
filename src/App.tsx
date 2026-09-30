@@ -15,12 +15,30 @@ import {
 } from './services/auth';
 import { loadDNSCoreMaster } from './services/dnsCore';
 import { loadAndApplyDNSDesignSystem } from './services/designSystem';
-import type { DNSAccessContext } from './types/access';
+import type { DNSAccessContext, DNSPermission } from './types/access';
 import type { DNSCoreMaster } from './types/master';
 import type { PricingDraftRow } from './types/pricing';
 
 type ConnectionState = 'loading' | 'ready' | 'error';
 type Language = 'de' | 'it';
+
+const DEV_PERMISSIONS = new Set<DNSPermission>([
+  'season.read',
+  'season.manage',
+  'pricing.read',
+  'pricing.manage',
+  'ticketOrders.read',
+  'ticketOrders.write',
+  'ticketOrders.verify',
+  'ticketSales.read',
+  'ticketSales.write',
+  'ticketSales.verify',
+  'kp.read',
+  'kp.write',
+  'kp.verify',
+  'verification.read',
+  'verification.manage',
+]);
 
 const copy = {
   de: {
@@ -47,6 +65,8 @@ const copy = {
     admin: 'DNS Admin',
     scoped: 'Freigeschalteter Benutzer',
     readOnly: 'Nur Lesen',
+    devMode: 'DEV MODE',
+    exitDev: 'Dev-Modus verlassen',
   },
   it: {
     operations: 'Operazioni',
@@ -72,6 +92,8 @@ const copy = {
     admin: 'DNS Admin',
     scoped: 'Utente abilitato',
     readOnly: 'Sola lettura',
+    devMode: 'DEV MODE',
+    exitDev: 'Esci dalla modalità sviluppo',
   },
 } as const;
 
@@ -84,6 +106,9 @@ function App() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [access, setAccess] = useState<DNSAccessContext | null>(null);
+  const [developmentMode, setDevelopmentMode] = useState(
+    () => sessionStorage.getItem('dns-development-mode') === '1',
+  );
 
   const t = copy[language];
 
@@ -146,14 +171,16 @@ function App() {
     );
   }, [master, activeSeason]);
 
+  const effectivePermissions = developmentMode
+    ? DEV_PERMISSIONS
+    : (access?.permissions ?? new Set<DNSPermission>());
+
   const allowedModules = useMemo(
     () =>
-      access
-        ? modules.filter((module) =>
-            access.permissions.has(MODULE_READ_PERMISSION[module.id]),
-          )
-        : [],
-    [access],
+      modules.filter((module) =>
+        effectivePermissions.has(MODULE_READ_PERMISSION[module.id]),
+      ),
+    [effectivePermissions],
   );
 
   useEffect(() => {
@@ -163,7 +190,7 @@ function App() {
     }
   }, [allowedModules, activeModule]);
 
-  if (!authReady) {
+  if (!authReady && !developmentMode) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-dns-bg">
         <div className="dns-kicker">{t.authLoading}</div>
@@ -171,13 +198,23 @@ function App() {
     );
   }
 
-  if (!authUser) {
-    return <LoginScreen language={language} onLanguageChange={setLanguage} />;
+  if (!authUser && !developmentMode) {
+    return (
+      <LoginScreen
+        language={language}
+        onLanguageChange={setLanguage}
+        onDevelopmentMode={() => {
+          sessionStorage.setItem('dns-development-mode', '1');
+          setDevelopmentMode(true);
+        }}
+      />
+    );
   }
 
   const hasAccess =
-    access?.profile?.active === true &&
-    (access.isAdmin || access.permissions.size > 0);
+    developmentMode ||
+    (access?.profile?.active === true &&
+      (access.isAdmin || access.permissions.size > 0));
 
   if (!hasAccess) {
     return (
@@ -192,16 +229,16 @@ function App() {
             </div>
             <button
               type="button"
-              onClick={() => void dnsSignOut()}
+              onClick={leaveSession}
               className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white"
             >
-              {t.signOut}
+              {developmentMode ? t.exitDev : t.signOut}
             </button>
           </div>
         </header>
         <main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-12 md:px-8">
           <section className="dns-card p-6 md:p-8">
-            <div className="dns-kicker">{authUser.email ?? authUser.uid}</div>
+            <div className="dns-kicker">{authUser?.email ?? authUser?.uid}</div>
             <h1 className="mt-1 text-[26px] font-semibold">{t.noAccessTitle}</h1>
             <p className="mt-3 font-alt text-[12px] leading-relaxed text-dns-muted">
               {t.noAccess}
@@ -215,7 +252,16 @@ function App() {
   const active =
     allowedModules.find((module) => module.id === activeModule) ??
     allowedModules[0];
-  const canManagePricing = access.permissions.has('pricing.manage');
+  const canManagePricing = effectivePermissions.has('pricing.manage');
+
+  function leaveSession() {
+    if (developmentMode) {
+      sessionStorage.removeItem('dns-development-mode');
+      setDevelopmentMode(false);
+      return;
+    }
+    void dnsSignOut();
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-dns-bg">
@@ -240,10 +286,10 @@ function App() {
           <div className="flex items-center gap-4">
             <div className="hidden text-right md:block">
               <div className="font-alt text-[10px] text-white/75">
-                {authUser.email ?? authUser.uid}
+                {developmentMode ? t.devMode : (authUser?.email ?? authUser?.uid)}
               </div>
               <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[.06em] text-dns-light">
-                {access.isAdmin ? t.admin : t.scoped}
+                {developmentMode ? t.devMode : access?.isAdmin ? t.admin : t.scoped}
               </div>
             </div>
 
@@ -294,6 +340,12 @@ function App() {
           </div>
         </div>
       </header>
+
+      {developmentMode && (
+        <div className="bg-amber-100 px-5 py-2 text-center font-alt text-[10px] font-bold uppercase tracking-[.08em] text-amber-900">
+          {t.devMode} · Frontend only · Firebase rules remain enforced
+        </div>
+      )}
 
       <nav className="dns-tab-nav" aria-label={t.operations}>
         <div className="dns-tab-nav-inner">
@@ -361,7 +413,7 @@ function App() {
               reportingAreas={master.reportingAreas}
               organizations={master.organizations}
               rows={[]}
-              canWrite={access.permissions.has('ticketOrders.write')}
+              canWrite={effectivePermissions.has('ticketOrders.write')}
             />
           )}
 
