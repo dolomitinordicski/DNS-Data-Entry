@@ -6,6 +6,7 @@ import { modules, type ModuleId } from './config/modules';
 import { createInitialPricingDraft } from './config/pricing';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PricingSetup } from './features/pricing/PricingSetup';
+import { TicketOrdersTable } from './features/orders/TicketOrdersTable';
 import { SeasonSetup } from './features/season/SeasonSetup';
 import {
   loadAccessContext,
@@ -353,7 +354,18 @@ function App() {
             />
           )}
 
-          {!['season', 'pricing'].includes(activeModule) && (
+          {activeModule === 'orders' && master && activeSeason && (
+            <TicketOrdersTable
+              language={language}
+              seasonId={String(activeSeason.id)}
+              reportingAreas={master.reportingAreas}
+              organizations={master.organizations}
+              rows={[]}
+              canWrite={access.permissions.has('ticketOrders.write')}
+            />
+          )}
+
+          {!['season', 'pricing', 'orders'].includes(activeModule) && (
             <>
               <section className="dns-card p-6">
                 <div className="dns-section-title">{active.label[language]}</div>
