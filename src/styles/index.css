@@ -1,0 +1,53 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-dns-deep: #0D4D5E;
+  --color-dns-mid: #417483;
+  --color-dns-light: #AAD0D1;
+  --color-dns-bg: #F4F8F9;
+  --color-dns-muted: #718990;
+  --font-display: "Be Vietnam Pro", sans-serif;
+  --font-alt: "Roboto", sans-serif;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--color-dns-bg);
+    color: var(--color-dns-deep);
+    font-family: var(--font-display);
+  }
+  button, input, select { font: inherit; }
+}
+
+@layer components {
+  .dns-card {
+    @apply rounded-[10px] bg-white shadow-[0_1px_4px_rgba(13,77,94,.07)];
+  }
+
+  .dns-section-title {
+    @apply text-[11px] font-bold uppercase tracking-[.07em] text-dns-deep;
+  }
+
+  .dns-kicker {
+    @apply text-[10px] font-semibold uppercase tracking-[.08em] text-dns-mid;
+  }
+
+  .dns-pill {
+    @apply inline-flex items-center gap-2 rounded-full border border-dns-mid/20 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.05em] text-dns-mid;
+  }
+
+  .dns-nav-button {
+    @apply rounded-md px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[.05em] transition;
+  }
+
+  .dns-nav-button-active {
+    @apply bg-dns-deep text-white;
+  }
+
+  .dns-nav-button-idle {
+    @apply text-dns-mid hover:bg-dns-deep/[.05] hover:text-dns-deep;
+  }
+}
