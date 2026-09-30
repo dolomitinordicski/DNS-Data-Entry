@@ -8,13 +8,13 @@ import {
   loadPersistedOrderMatrix,
   savePersistedOrderMatrix,
 } from '../../services/orders';
-import { DNS_SHARED_BRAND } from '../../config/brand';
 import {
   buildPublicShareUrl,
   getActivePublicShare,
   publishPublicOrderShare,
   revokePublicOrderShare,
 } from '../../services/publicOrderShares';
+import { OrderPrintSheet } from './OrderPrintSheet';
 import type { DNSAccessContext } from '../../types/access';
 import type { CanonicalRecord } from '../../types/master';
 import type {
@@ -451,21 +451,14 @@ export function TicketOrdersTable({
 
   return (
     <div className="space-y-5 order-print-area">
-      <div className="print-only dns-print-header">
-        <img
-          src={DNS_SHARED_BRAND.printLogoUrl}
-          alt="Dolomiti NordicSki"
-          className="dns-print-logo"
-        />
-        <div>
-          <div className="dns-print-title">
-            {category === 'wristband' ? t.wristbands : t.tickets}
-          </div>
-          <div className="dns-print-meta">
-            WS {seasonId} · {new Date().toLocaleString(language === 'de' ? 'de-DE' : 'it-IT')}
-          </div>
-        </div>
-      </div>
+      <OrderPrintSheet
+        language={language}
+        seasonId={seasonId}
+        category={category}
+        items={draft.items}
+        organizations={draft.organizations}
+        cells={draft.cells}
+      />
       {isAdmin && !developmentMode && (
         <section className="no-print dns-card p-5 md:p-6">
           <div className="dns-section-title">{t.publicShare}</div>

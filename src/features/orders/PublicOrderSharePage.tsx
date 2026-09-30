@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import logoFallback from '../../../logo1.png';
 import { DNS_SHARED_BRAND } from '../../config/brand';
+import { OrderPrintSheet } from './OrderPrintSheet';
 import {
   loadPublicOrderShare,
   type PublicOrderShareDocument,
@@ -128,7 +128,7 @@ export function PublicOrderSharePage({
       <header className="no-print bg-dns-deep text-white">
         <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-3.5 md:px-8">
           <div className="flex items-center gap-4">
-            <img src={logoFallback} alt="Dolomiti NordicSki" className="h-10 w-auto" />
+            <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="h-10 w-auto" />
             <div>
               <div className="text-[20px] uppercase tracking-[.035em]">
                 <strong>DNS</strong> <span className="font-normal">ORDERS</span>
@@ -168,22 +168,22 @@ export function PublicOrderSharePage({
       </header>
 
       <main className="order-print-area mx-auto max-w-[1440px] px-5 py-6 md:px-8">
-        <div className="print-only dns-print-header">
-          <img
-            src={DNS_SHARED_BRAND.printLogoUrl}
-            alt="Dolomiti NordicSki"
-            className="dns-print-logo"
-          />
-          <div>
-            <div className="dns-print-title">{title}</div>
-            <div className="dns-print-meta">
-              WS {snapshot.seasonId} · {t.generatedAt}:{' '}
-              {new Date(snapshot.generatedAt).toLocaleString(
-                language === 'de' ? 'de-DE' : 'it-IT',
-              )}
-            </div>
-          </div>
-        </div>
+        <OrderPrintSheet
+          language={language}
+          seasonId={snapshot.seasonId}
+          category={snapshot.category}
+          items={snapshot.items.map((item) => ({
+            ...item,
+            category: snapshot.category,
+          }))}
+          organizations={snapshot.organizations}
+          cells={snapshot.cells.map((cell) => ({
+            organizationId: cell.organizationId,
+            itemId: cell.catalogItemId,
+            quantity: cell.quantity,
+          }))}
+          generatedAt={snapshot.generatedAt}
+        />
 
         <section className="dns-card p-5 md:p-6 print-flat">
           <div className="dns-kicker">WS {snapshot.seasonId}</div>
