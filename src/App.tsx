@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
-import logoUrl from '../logo1.png';
+import { DNS_SHARED_BRAND } from './config/brand';
 import { MODULE_READ_PERMISSION } from './config/access';
 import { modules, type ModuleId } from './config/modules';
 import { createInitialPricingDraft } from './config/pricing';
@@ -229,7 +229,7 @@ function App() {
         <header className="bg-dns-deep text-white">
           <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3.5 md:px-8">
             <div className="flex items-center gap-4">
-              <img src={logoUrl} alt="Dolomiti NordicSki" className="h-10 w-auto" />
+              <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="h-10 w-auto" />
               <div className="text-[22px] uppercase tracking-[.035em]">
                 <strong>DNS</strong> <span className="font-normal">DATA ENTRY</span>
               </div>
@@ -276,7 +276,7 @@ function App() {
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3.5 md:px-8">
           <div className="flex items-center gap-4">
             <img
-              src={logoUrl}
+              src={DNS_SHARED_BRAND.webLogoUrl}
               alt="Dolomiti NordicSki"
               className="h-10 w-auto shrink-0 object-contain"
             />
