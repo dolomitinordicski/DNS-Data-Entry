@@ -9,6 +9,10 @@
   --color-dns-muted: #718990;
   --font-display: "Be Vietnam Pro", sans-serif;
   --font-alt: "Roboto", sans-serif;
+  --dns-card-radius: 10px;
+  --dns-control-radius: 6px;
+  --dns-card-shadow: 0 1px 4px rgba(13,77,94,.07);
+  --dns-header-shadow: 0 1px 0 rgba(255,255,255,.08);
 }
 
 @layer base {
@@ -24,7 +28,9 @@
 
 @layer components {
   .dns-card {
-    @apply rounded-[10px] bg-white shadow-[0_1px_4px_rgba(13,77,94,.07)];
+    background: var(--color-dns-surface, #fff);
+    border-radius: var(--dns-card-radius);
+    box-shadow: var(--dns-card-shadow);
   }
 
   .dns-section-title {

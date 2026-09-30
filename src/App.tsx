@@ -5,6 +5,7 @@ import { createInitialPricingDraft } from './config/pricing';
 import { PricingSetup } from './features/pricing/PricingSetup';
 import { SeasonSetup } from './features/season/SeasonSetup';
 import { loadDNSCoreMaster } from './services/dnsCore';
+import { loadAndApplyDNSDesignSystem } from './services/designSystem';
 import type { DNSCoreMaster } from './types/master';
 import type { PricingDraftRow } from './types/pricing';
 
@@ -56,6 +57,10 @@ function App() {
   const [pricingRows, setPricingRows] = useState<PricingDraftRow[]>([]);
 
   const t = copy[language];
+
+  useEffect(() => {
+    void loadAndApplyDNSDesignSystem();
+  }, []);
 
   useEffect(() => {
     loadDNSCoreMaster()
