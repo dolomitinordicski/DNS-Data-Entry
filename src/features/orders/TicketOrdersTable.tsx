@@ -8,6 +8,13 @@ import {
   loadPersistedOrderMatrix,
   savePersistedOrderMatrix,
 } from '../../services/orders';
+import { DNS_SHARED_BRAND } from '../../config/brand';
+import {
+  buildPublicShareUrl,
+  getActivePublicShare,
+  publishPublicOrderShare,
+  revokePublicOrderShare,
+} from '../../services/publicOrderShares';
 import type { DNSAccessContext } from '../../types/access';
 import type { CanonicalRecord } from '../../types/master';
 import type {
@@ -25,6 +32,7 @@ interface Props {
   developmentMode: boolean;
   access: DNSAccessContext | null;
   organizations: CanonicalRecord[];
+  isAdmin: boolean;
 }
 
 const copy = {
@@ -54,6 +62,13 @@ const copy = {
       'Die Farben sind saisonal fixiert und können in anderen Jahren wechseln. Die Bildschirmfarben dienen als visuelle Orientierung; die Lieferantenreferenz ist maßgeblich.',
     loading: 'Bestellungen werden aus DNS_Core geladen…',
     error: 'Bestelldaten konnten nicht geladen oder gespeichert werden.',
+    print: 'Drucken',
+    share: 'Lieferanten-Link erstellen',
+    updateShare: 'Lieferanten-Link aktualisieren',
+    revokeShare: 'Link widerrufen',
+    copyShare: 'Link kopieren',
+    publicShare: 'Öffentlicher Lieferanten-Link',
+    shareDirty: 'Zuerst die Änderungen in Firestore speichern.',
   },
   it: {
     title: 'Ordini biglietti',
@@ -81,6 +96,13 @@ const copy = {
       'I colori sono fissati per stagione e possono cambiare negli anni successivi. I colori a schermo sono solo orientativi; fa fede il riferimento del fornitore.',
     loading: 'Caricamento ordini da DNS_Core…',
     error: 'Impossibile caricare o salvare i dati degli ordini.',
+    print: 'Stampa',
+    share: 'Crea link fornitore',
+    updateShare: 'Aggiorna link fornitore',
+    revokeShare: 'Revoca link',
+    copyShare: 'Copia link',
+    publicShare: 'Link pubblico fornitore',
+    shareDirty: 'Salva prima le modifiche in Firestore.',
   },
 } as const;
 
@@ -164,6 +186,7 @@ export function TicketOrdersTable({
   developmentMode,
   access,
   organizations,
+  isAdmin,
 }: Props) {
   const t = copy[language];
   const [category, setCategory] = useState<OrderMatrixCategory>('wristband');
@@ -177,6 +200,8 @@ export function TicketOrdersTable({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
 
   const visibleOrganizationIds = useMemo(
     () => getVisibleOrganizationIds(developmentMode, access, organizations),
@@ -285,6 +310,65 @@ export function TicketOrdersTable({
 
   const grandTotal = [...rowTotals.values()].reduce((sum, value) => sum + value, 0);
 
+  const shareUrl = shareId ? buildPublicShareUrl(shareId) : null;
+
+  async function refreshShare() {
+    if (!isAdmin || developmentMode) {
+      setShareId(null);
+      return;
+    }
+    try {
+      const share = await getActivePublicShare(seasonId, category);
+      setShareId(share?.id ?? null);
+    } catch (reason) {
+      console.error('Public order share lookup failed', reason);
+      setShareId(null);
+    }
+  }
+
+  useEffect(() => {
+    void refreshShare();
+  }, [category, seasonId, isAdmin, developmentMode]);
+
+  async function publishShare() {
+    if (!current || !isAdmin || developmentMode || dirty[category]) return;
+    setSharing(true);
+    setError(false);
+    try {
+      const share = await publishPublicOrderShare(current.draft);
+      setShareId(share.id);
+    } catch (reason) {
+      console.error('Public order share publish failed', reason);
+      setError(true);
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function revokeShare() {
+    if (!shareId || !isAdmin || developmentMode) return;
+    setSharing(true);
+    setError(false);
+    try {
+      await revokePublicOrderShare(shareId);
+      setShareId(null);
+    } catch (reason) {
+      console.error('Public order share revoke failed', reason);
+      setError(true);
+    } finally {
+      setSharing(false);
+    }
+  }
+
+  async function copyShare() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch (reason) {
+      console.warn('Clipboard unavailable', reason);
+    }
+  }
+
   function updateQuantity(
     organizationId: string,
     itemId: string,
@@ -366,7 +450,60 @@ export function TicketOrdersTable({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 order-print-area">
+      <div className="print-only dns-print-header">
+        <img
+          src={DNS_SHARED_BRAND.printLogoUrl}
+          alt="Dolomiti NordicSki"
+          className="dns-print-logo"
+        />
+        <div>
+          <div className="dns-print-title">
+            {category === 'wristband' ? t.wristbands : t.tickets}
+          </div>
+          <div className="dns-print-meta">
+            WS {seasonId} · {new Date().toLocaleString(language === 'de' ? 'de-DE' : 'it-IT')}
+          </div>
+        </div>
+      </div>
+      {isAdmin && !developmentMode && (
+        <section className="no-print dns-card p-5 md:p-6">
+          <div className="dns-section-title">{t.publicShare}</div>
+          <p className="mt-2 font-alt text-[10px] text-dns-muted">
+            {dirty[category] ? t.shareDirty : (shareUrl ?? '—')}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => void publishShare()}
+              disabled={sharing || dirty[category]}
+              className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white disabled:opacity-40"
+            >
+              {shareId ? t.updateShare : t.share}
+            </button>
+            {shareUrl && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void copyShare()}
+                  className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
+                >
+                  {t.copyShare}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void revokeShare()}
+                  disabled={sharing}
+                  className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-mid disabled:opacity-40"
+                >
+                  {t.revokeShare}
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
       <section className="dns-card overflow-hidden">
         <div className="p-5 md:p-6">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
@@ -378,7 +515,14 @@ export function TicketOrdersTable({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="no-print flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="rounded-md border border-dns-mid/25 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
+              >
+                {t.print}
+              </button>
               <span className="dns-pill">{t.orderedVsSold}</span>
               <span className="dns-pill">
                 {developmentMode ? t.localDraft : t.live}

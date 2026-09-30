@@ -7,6 +7,7 @@ import { createInitialPricingDraft } from './config/pricing';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PricingSetup } from './features/pricing/PricingSetup';
 import { TicketOrdersTable } from './features/orders/TicketOrdersTable';
+import { PublicOrderSharePage } from './features/orders/PublicOrderSharePage';
 import { SeasonSetup } from './features/season/SeasonSetup';
 import {
   loadAccessContext,
@@ -98,6 +99,8 @@ const copy = {
 } as const;
 
 function App() {
+  const publicShareId = new URLSearchParams(window.location.search).get('share');
+
   const [language, setLanguage] = useState<Language>('de');
   const [activeModule, setActiveModule] = useState<ModuleId>('season');
   const [master, setMaster] = useState<DNSCoreMaster | null>(null);
@@ -189,6 +192,10 @@ function App() {
       setActiveModule(allowedModules[0].id);
     }
   }, [allowedModules, activeModule]);
+
+  if (publicShareId) {
+    return <PublicOrderSharePage shareId={publicShareId} />;
+  }
 
   if (!authReady && !developmentMode) {
     return (
@@ -414,6 +421,7 @@ function App() {
               developmentMode={developmentMode}
               access={access}
               organizations={master.organizations}
+              isAdmin={access?.isAdmin === true}
             />
           )}
 

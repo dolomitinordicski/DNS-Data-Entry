@@ -1,0 +1,315 @@
+import { useEffect, useMemo, useState } from 'react';
+import logoFallback from '../../../logo1.png';
+import { DNS_SHARED_BRAND } from '../../config/brand';
+import {
+  loadPublicOrderShare,
+  type PublicOrderShareDocument,
+} from '../../services/publicOrderShares';
+
+type Language = 'de' | 'it';
+
+const copy = {
+  de: {
+    supplierView: 'Lieferantenansicht',
+    loading: 'Bestellung wird geladen…',
+    unavailable: 'Dieser öffentliche Link ist nicht verfügbar oder wurde widerrufen.',
+    print: 'Drucken',
+    total: 'Gesamt',
+    organization: 'Organisation',
+    generatedAt: 'Stand',
+    legend: 'Farb-Legende',
+    supplierRef: 'Lieferantenreferenz',
+  },
+  it: {
+    supplierView: 'Vista fornitore',
+    loading: 'Caricamento ordine…',
+    unavailable: 'Questo link pubblico non è disponibile oppure è stato revocato.',
+    print: 'Stampa',
+    total: 'Totale',
+    organization: 'Organizzazione',
+    generatedAt: 'Aggiornato',
+    legend: 'Legenda colori',
+    supplierRef: 'Riferimento fornitore',
+  },
+} as const;
+
+function formatNumber(value: number, language: Language) {
+  return value.toLocaleString(language === 'de' ? 'de-DE' : 'it-IT');
+}
+
+export function PublicOrderSharePage({
+  shareId,
+}: {
+  shareId: string;
+}) {
+  const [language, setLanguage] = useState<Language>('de');
+  const [share, setShare] = useState<PublicOrderShareDocument | null>(null);
+  const [loading, setLoading] = useState(true);
+  const t = copy[language];
+
+  useEffect(() => {
+    loadPublicOrderShare(shareId)
+      .then(setShare)
+      .catch((error) => {
+        console.error('Public order share load failed', error);
+        setShare(null);
+      })
+      .finally(() => setLoading(false));
+  }, [shareId]);
+
+  const quantities = useMemo(() => {
+    if (!share) return new Map<string, number | null>();
+    return new Map(
+      share.snapshot.cells.map((cell) => [
+        `${cell.organizationId}::${cell.catalogItemId}`,
+        cell.quantity,
+      ]),
+    );
+  }, [share]);
+
+  const rowTotals = useMemo(() => {
+    if (!share) return new Map<string, number>();
+    return new Map(
+      share.snapshot.organizations.map((organization) => [
+        organization.organizationId,
+        share.snapshot.items.reduce(
+          (sum, item) =>
+            sum +
+            (quantities.get(
+              `${organization.organizationId}::${item.id}`,
+            ) ?? 0),
+          0,
+        ),
+      ]),
+    );
+  }, [share, quantities]);
+
+  const columnTotals = useMemo(() => {
+    if (!share) return new Map<string, number>();
+    return new Map(
+      share.snapshot.items.map((item) => [
+        item.id,
+        share.snapshot.organizations.reduce(
+          (sum, organization) =>
+            sum +
+            (quantities.get(
+              `${organization.organizationId}::${item.id}`,
+            ) ?? 0),
+          0,
+        ),
+      ]),
+    );
+  }, [share, quantities]);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-dns-bg">
+        <div className="dns-kicker">{t.loading}</div>
+      </div>
+    );
+  }
+
+  if (!share || !share.active) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-dns-bg px-5">
+        <section className="dns-card max-w-[620px] p-8 text-center">
+          <div className="dns-section-title">{t.unavailable}</div>
+        </section>
+      </div>
+    );
+  }
+
+  const snapshot = share.snapshot;
+  const title =
+    language === 'de' ? snapshot.title.de : snapshot.title.it;
+
+  return (
+    <div className="min-h-screen bg-dns-bg">
+      <header className="no-print bg-dns-deep text-white">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-3.5 md:px-8">
+          <div className="flex items-center gap-4">
+            <img src={logoFallback} alt="Dolomiti NordicSki" className="h-10 w-auto" />
+            <div>
+              <div className="text-[20px] uppercase tracking-[.035em]">
+                <strong>DNS</strong> <span className="font-normal">ORDERS</span>
+              </div>
+              <div className="mt-1 font-alt text-[10px] uppercase tracking-[.06em] text-dns-light">
+                {t.supplierView}
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex gap-3 text-[10px] font-bold uppercase tracking-[.06em]">
+              {(['de', 'it'] as const).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => setLanguage(lang)}
+                  className={[
+                    'border-0 border-b-2 bg-transparent px-1 py-1 text-white transition',
+                    language === lang
+                      ? 'border-white'
+                      : 'border-transparent opacity-60',
+                  ].join(' ')}
+                >
+                  {lang.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="rounded-md border border-white/30 bg-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white"
+            >
+              {t.print}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main className="order-print-area mx-auto max-w-[1440px] px-5 py-6 md:px-8">
+        <div className="print-only dns-print-header">
+          <img
+            src={DNS_SHARED_BRAND.printLogoUrl}
+            alt="Dolomiti NordicSki"
+            className="dns-print-logo"
+          />
+          <div>
+            <div className="dns-print-title">{title}</div>
+            <div className="dns-print-meta">
+              WS {snapshot.seasonId} · {t.generatedAt}:{' '}
+              {new Date(snapshot.generatedAt).toLocaleString(
+                language === 'de' ? 'de-DE' : 'it-IT',
+              )}
+            </div>
+          </div>
+        </div>
+
+        <section className="dns-card p-5 md:p-6 print-flat">
+          <div className="dns-kicker">WS {snapshot.seasonId}</div>
+          <h1 className="mt-1 text-[26px] font-semibold text-dns-deep">{title}</h1>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <span className="dns-pill">
+              {t.total}: {formatNumber(snapshot.totalQuantity, language)}
+            </span>
+            <span className="dns-pill">
+              {t.generatedAt}:{' '}
+              {new Date(snapshot.generatedAt).toLocaleString(
+                language === 'de' ? 'de-DE' : 'it-IT',
+              )}
+            </span>
+          </div>
+        </section>
+
+        {snapshot.category === 'wristband' && (
+          <section className="dns-card mt-5 p-5 md:p-6 print-flat">
+            <div className="dns-section-title">{t.legend}</div>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 print-legend">
+              {snapshot.items.map((item) => (
+                <div
+                  key={item.id}
+                  className="overflow-hidden rounded-md border border-dns-mid/15 bg-white print-legend-item"
+                >
+                  <div
+                    className="flex h-10 items-center justify-center px-2 text-[10px] font-bold uppercase tracking-[.04em]"
+                    style={{
+                      backgroundColor: item.displayColorHex ?? '#FFFFFF',
+                      color: item.displayTextColorHex ?? '#111111',
+                      boxShadow:
+                        item.displayColorHex?.toUpperCase() === '#FFFFFF'
+                          ? 'inset 0 0 0 1px rgba(13,77,94,.18)'
+                          : undefined,
+                    }}
+                  >
+                    {language === 'de' ? item.label.de : item.label.it}
+                  </div>
+                  <div className="px-2 py-2 text-center font-alt text-[9px] text-dns-muted">
+                    {t.supplierRef}: {item.supplierColorReference ?? '—'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <section className="dns-card mt-5 overflow-hidden print-flat">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1000px] border-collapse dns-print-table">
+              <thead>
+                <tr className="border-b border-dns-mid/15 bg-dns-bg text-left text-[9px] uppercase tracking-[.05em] text-dns-mid">
+                  <th className="min-w-[210px] px-4 py-3">{t.organization}</th>
+                  {snapshot.items.map((item) => (
+                    <th key={item.id} className="min-w-[110px] px-3 py-3 text-center">
+                      {snapshot.category === 'wristband' && (
+                        <span
+                          className="mx-auto mb-2 block h-2 w-12 rounded-full border border-black/10"
+                          style={{
+                            backgroundColor: item.displayColorHex ?? '#FFFFFF',
+                          }}
+                        />
+                      )}
+                      {language === 'de' ? item.label.de : item.label.it}
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 text-right">{t.total}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {snapshot.organizations.map((organization) => (
+                  <tr
+                    key={organization.organizationId}
+                    className="border-b border-dns-mid/10"
+                  >
+                    <td className="px-4 py-2.5 text-[11px] font-semibold">
+                      {organization.sourceLabel}
+                    </td>
+                    {snapshot.items.map((item) => {
+                      const value =
+                        quantities.get(
+                          `${organization.organizationId}::${item.id}`,
+                        ) ?? null;
+                      return (
+                        <td
+                          key={item.id}
+                          className="px-3 py-2.5 text-right font-alt text-[11px]"
+                        >
+                          {value === null
+                            ? '—'
+                            : formatNumber(value, language)}
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-2.5 text-right text-[11px] font-bold">
+                      {formatNumber(
+                        rowTotals.get(organization.organizationId) ?? 0,
+                        language,
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-dns-mid bg-dns-deep text-white">
+                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[.06em]">
+                    {t.total}
+                  </th>
+                  {snapshot.items.map((item) => (
+                    <th
+                      key={item.id}
+                      className="px-3 py-3 text-right text-[11px] font-bold"
+                    >
+                      {formatNumber(columnTotals.get(item.id) ?? 0, language)}
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 text-right text-[12px] font-bold">
+                    {formatNumber(snapshot.totalQuantity, language)}
+                  </th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
