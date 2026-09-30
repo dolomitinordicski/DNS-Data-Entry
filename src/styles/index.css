@@ -45,15 +45,95 @@
     @apply inline-flex items-center gap-2 rounded-full border border-dns-mid/20 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.05em] text-dns-mid;
   }
 
-  .dns-nav-button {
-    @apply rounded-md px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-[.05em] transition;
+  .dns-tab-nav {
+    position: sticky;
+    top: 68px;
+    z-index: 25;
+    background: var(--color-dns-mid);
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .dns-nav-button-active {
-    @apply bg-dns-deep text-white;
+  .dns-tab-nav-inner {
+    display: flex;
+    align-items: center;
+    min-width: max-content;
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 0 1.25rem;
   }
 
-  .dns-nav-button-idle {
-    @apply text-dns-mid hover:bg-dns-deep/[.05] hover:text-dns-deep;
+  .dns-tab-season {
+    flex: 0 0 auto;
+    margin-right: .5rem;
+    padding: .65rem .8rem .62rem 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: rgba(255,255,255,.82);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
   }
+
+  .dns-tab {
+    flex: 0 0 auto;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    padding: .65rem 1.2rem .62rem;
+    cursor: pointer;
+    color: rgba(255,255,255,.60);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    transition: color .2s ease, border-color .2s ease;
+    scroll-snap-align: start;
+  }
+
+  .dns-tab:hover {
+    color: rgba(255,255,255,.85);
+  }
+
+  .dns-tab-active {
+    color: #fff;
+    border-bottom-color: #fff;
+  }
+}
+
+@media (max-width: 1023px) {
+  .dns-tab-nav-inner {
+    padding: 0 1rem;
+  }
+
+  .dns-tab {
+    padding-left: .95rem;
+    padding-right: .95rem;
+  }
+}
+
+@media (max-width: 767px) {
+  .dns-tab-nav {
+    top: 62px;
+    scroll-snap-type: x proximity;
+  }
+
+  .dns-tab-nav-inner {
+    padding: 0 .9rem;
+  }
+
+  .dns-tab-season {
+    padding-top: .55rem;
+    padding-bottom: .52rem;
+  }
+
+  .dns-tab {
+    padding: .55rem .8rem .52rem;
+    font-size: 10px;
+  }
+
 }
