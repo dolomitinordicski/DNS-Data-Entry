@@ -410,9 +410,6 @@ function App() {
             <TicketOrdersTable
               language={language}
               seasonId={String(activeSeason.id)}
-              reportingAreas={master.reportingAreas}
-              organizations={master.organizations}
-              rows={[]}
               canWrite={effectivePermissions.has('ticketOrders.write')}
             />
           )}
