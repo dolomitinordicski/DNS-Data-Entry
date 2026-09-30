@@ -8,16 +8,46 @@ export type ModuleId =
 
 export interface ModuleDefinition {
   id: ModuleId;
-  label: string;
-  subtitle: string;
-  phase: string;
+  label: { de: string; it: string };
+  subtitle: { de: string; it: string };
+  phase: { de: string; it: string };
 }
 
 export const modules: ModuleDefinition[] = [
-  { id: 'season', label: 'Season Setup', subtitle: 'Saison & Grundkonfiguration', phase: 'Foundation' },
-  { id: 'pricing', label: 'Pricing', subtitle: 'DNS- und Gebietstarife', phase: 'Next' },
-  { id: 'orders', label: 'Ticket Orders', subtitle: 'Bestellungen & Billing Prep', phase: 'Planned' },
-  { id: 'sales', label: 'Ticket Sales', subtitle: 'Verkaufsdaten der Partner', phase: 'Planned' },
-  { id: 'kp', label: 'KP', subtitle: 'Loipen & Beschneiung', phase: 'Planned' },
-  { id: 'verification', label: 'Verification', subtitle: 'Prüfung & Freigabe', phase: 'Planned' },
+  {
+    id: 'season',
+    label: { de: 'Saison-Setup', it: 'Setup stagione' },
+    subtitle: { de: 'Saison & Grundkonfiguration', it: 'Stagione e configurazione base' },
+    phase: { de: 'Grundlage', it: 'Fondazione' },
+  },
+  {
+    id: 'pricing',
+    label: { de: 'Tarife', it: 'Tariffe' },
+    subtitle: { de: 'DNS- und Gebietstarife', it: 'Tariffe DNS e di area' },
+    phase: { de: 'Nächster Schritt', it: 'Prossimo step' },
+  },
+  {
+    id: 'orders',
+    label: { de: 'Ticket-Bestellungen', it: 'Ordini biglietti' },
+    subtitle: { de: 'Bestellungen & Billing Prep', it: 'Ordini e preparazione billing' },
+    phase: { de: 'Geplant', it: 'Pianificato' },
+  },
+  {
+    id: 'sales',
+    label: { de: 'Ticket-Verkäufe', it: 'Vendite biglietti' },
+    subtitle: { de: 'Verkaufsdaten der Partner', it: 'Dati di vendita dei partner' },
+    phase: { de: 'Geplant', it: 'Pianificato' },
+  },
+  {
+    id: 'kp',
+    label: { de: 'KP', it: 'KP' },
+    subtitle: { de: 'Loipen & Beschneiung', it: 'Piste e innevamento' },
+    phase: { de: 'Geplant', it: 'Pianificato' },
+  },
+  {
+    id: 'verification',
+    label: { de: 'Prüfung', it: 'Verifica' },
+    subtitle: { de: 'Prüfung & Freigabe', it: 'Controllo e approvazione' },
+    phase: { de: 'Geplant', it: 'Pianificato' },
+  },
 ];
