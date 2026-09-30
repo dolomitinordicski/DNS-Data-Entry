@@ -311,10 +311,10 @@ function App() {
 
             <button
               type="button"
-              onClick={() => void dnsSignOut()}
+              onClick={leaveSession}
               className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white/80 hover:text-white"
             >
-              {t.signOut}
+              {developmentMode ? t.exitDev : t.signOut}
             </button>
 
             <div
@@ -411,6 +411,9 @@ function App() {
               language={language}
               seasonId={String(activeSeason.id)}
               canWrite={effectivePermissions.has('ticketOrders.write')}
+              developmentMode={developmentMode}
+              access={access}
+              organizations={master.organizations}
             />
           )}
 
