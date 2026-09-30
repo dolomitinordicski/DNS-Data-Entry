@@ -157,41 +157,29 @@ function App() {
         </div>
       </header>
 
-      <div className="mx-auto grid w-full max-w-[1440px] flex-1 grid-cols-1 gap-5 px-5 py-5 md:px-8 lg:grid-cols-[250px_minmax(0,1fr)]">
-        <aside className="dns-card h-fit p-3">
-          <div className="px-2 pb-2 pt-1">
-            <div className="dns-kicker">{t.operations}</div>
-            <div className="mt-1 text-[18px] font-bold">
-              WS {String(activeSeason?.id ?? '2026-27')}
-            </div>
+      <nav className="dns-tab-nav" aria-label={t.operations}>
+        <div className="dns-tab-nav-inner">
+          <div className="dns-tab-season">
+            WS {String(activeSeason?.id ?? '2026-27')}
           </div>
-          <nav className="mt-2 space-y-1">
-            {modules.map((module) => (
-              <button
-                key={module.id}
-                type="button"
-                onClick={() => setActiveModule(module.id)}
-                className={[
-                  'dns-nav-button w-full',
-                  activeModule === module.id
-                    ? 'dns-nav-button-active'
-                    : 'dns-nav-button-idle',
-                ].join(' ')}
-              >
-                <span className="block">{module.label[language]}</span>
-                <span
-                  className={[
-                    'mt-0.5 block font-alt text-[9px] font-normal normal-case tracking-normal',
-                    activeModule === module.id ? 'text-white/70' : 'text-dns-muted',
-                  ].join(' ')}
-                >
-                  {module.subtitle[language]}
-                </span>
-              </button>
-            ))}
-          </nav>
-        </aside>
+          {modules.map((module) => (
+            <button
+              key={module.id}
+              type="button"
+              onClick={() => setActiveModule(module.id)}
+              className={[
+                'dns-tab',
+                activeModule === module.id ? 'dns-tab-active' : '',
+              ].join(' ')}
+              aria-current={activeModule === module.id ? 'page' : undefined}
+            >
+              {module.label[language]}
+            </button>
+          ))}
+        </div>
+      </nav>
 
+      <div className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-5 md:px-8">
         <main className="space-y-5">
           <section className="dns-card p-5 md:p-6">
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
@@ -259,12 +247,12 @@ function App() {
         </main>
       </div>
 
-      <footer className="mt-6 border-t border-dns-mid/15 bg-white">
+      <footer className="mt-6 bg-dns-deep text-white">
         <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-8">
-          <div className="text-[11px] font-semibold uppercase tracking-[.05em] text-dns-deep">
+          <div className="text-[11px] font-semibold uppercase tracking-[.05em] text-white/80">
             {t.footerMain}
           </div>
-          <div className="font-alt text-[10px] text-dns-muted">
+          <div className="font-alt text-[10px] uppercase tracking-[.04em] text-white/60">
             {t.footerSub} · © 2026
           </div>
         </div>
