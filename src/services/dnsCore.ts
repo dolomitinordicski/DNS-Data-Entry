@@ -12,7 +12,7 @@ const firebaseConfig = {
   measurementId: 'G-2G56PRYNME',
 };
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
 const collections: MasterCollectionName[] = [
