@@ -4,10 +4,13 @@ export interface OrderMatrixItem {
   id: string;
   category: OrderMatrixCategory;
   code: string;
-  label: { de: string; it: string };
+  label: { de: string; it: string; en?: string };
   displayOrder: number;
   productCode?: string;
   physicalVariantCode?: string;
+  displayColorHex?: string;
+  displayTextColorHex?: string;
+  supplierColorReference?: string;
 }
 
 export interface OrderMatrixOrganization {
@@ -28,4 +31,10 @@ export interface OrderMatrixDraft {
   items: OrderMatrixItem[];
   organizations: OrderMatrixOrganization[];
   cells: OrderMatrixCell[];
+}
+
+export interface PersistedOrderMatrix {
+  draft: OrderMatrixDraft;
+  persistedOrderIds: Set<string>;
+  persistedLineIds: Set<string>;
 }

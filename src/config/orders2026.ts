@@ -1,14 +1,14 @@
 import type { OrderMatrixDraft } from '../types/orderMatrix';
 
 const wristbandItems = [
-  { id: 'wristband-14-yellow', category: 'wristband', code: '14-yellow', label: { de: '14 yellow', it: '14 yellow' }, displayOrder: 1, physicalVariantCode: '14 yellow' },
-  { id: 'wristband-16-red', category: 'wristband', code: '16-red', label: { de: '16 red', it: '16 red' }, displayOrder: 2, physicalVariantCode: '16 red' },
-  { id: 'wristband-33-grape', category: 'wristband', code: '33-grape', label: { de: '33 grape', it: '33 grape' }, displayOrder: 3, physicalVariantCode: '33 grape' },
-  { id: 'wristband-15-light-green', category: 'wristband', code: '15-light-green', label: { de: '15 light green', it: '15 light green' }, displayOrder: 4, physicalVariantCode: '15 light green' },
-  { id: 'wristband-13-blue', category: 'wristband', code: '13-blue', label: { de: '13 blue', it: '13 blue' }, displayOrder: 5, physicalVariantCode: '13 blue' },
-  { id: 'wristband-20-black', category: 'wristband', code: '20-black', label: { de: '20 black', it: '20 black' }, displayOrder: 6, physicalVariantCode: '20 black' },
-  { id: 'wristband-51-gold', category: 'wristband', code: '51-gold', label: { de: '51 gold', it: '51 gold' }, displayOrder: 7, physicalVariantCode: '51 gold' },
-  { id: 'wristband-11-white', category: 'wristband', code: '11-white', label: { de: '11 white', it: '11 white' }, displayOrder: 8, physicalVariantCode: '11 white' },
+  { id: 'wristband-14-yellow', category: 'wristband', code: '14-yellow', label: { de: '14 yellow', it: '14 yellow' }, displayOrder: 1, physicalVariantCode: '14 yellow', displayColorHex: '#FFD91A', displayTextColorHex: '#111111', supplierColorReference: '803C' },
+  { id: 'wristband-16-red', category: 'wristband', code: '16-red', label: { de: '16 red', it: '16 red' }, displayOrder: 2, physicalVariantCode: '16 red', displayColorHex: '#E51D2A', displayTextColorHex: '#FFFFFF', supplierColorReference: '185C' },
+  { id: 'wristband-33-grape', category: 'wristband', code: '33-grape', label: { de: '33 grape', it: '33 grape' }, displayOrder: 3, physicalVariantCode: '33 grape', displayColorHex: '#C74398', displayTextColorHex: '#111111', supplierColorReference: '807C' },
+  { id: 'wristband-15-light-green', category: 'wristband', code: '15-light-green', label: { de: '15 light green', it: '15 light green' }, displayOrder: 4, physicalVariantCode: '15 light green', displayColorHex: '#45A276', displayTextColorHex: '#FFFFFF', supplierColorReference: 'CMYK · reorder 34186062' },
+  { id: 'wristband-13-blue', category: 'wristband', code: '13-blue', label: { de: '13 blue', it: '13 blue' }, displayOrder: 5, physicalVariantCode: '13 blue', displayColorHex: '#1088B8', displayTextColorHex: '#111111', supplierColorReference: 'Process Blue C' },
+  { id: 'wristband-20-black', category: 'wristband', code: '20-black', label: { de: '20 black', it: '20 black' }, displayOrder: 6, physicalVariantCode: '20 black', displayColorHex: '#272324', displayTextColorHex: '#FFFFFF', supplierColorReference: 'Black' },
+  { id: 'wristband-51-gold', category: 'wristband', code: '51-gold', label: { de: '51 gold', it: '51 gold' }, displayOrder: 7, physicalVariantCode: '51 gold', displayColorHex: '#97805A', displayTextColorHex: '#111111', supplierColorReference: '872C' },
+  { id: 'wristband-11-white', category: 'wristband', code: '11-white', label: { de: '11 white', it: '11 white' }, displayOrder: 8, physicalVariantCode: '11 white', displayColorHex: '#FFFFFF', displayTextColorHex: '#111111', supplierColorReference: '—' },
 ] as const;
 
 const ticketItems = [
