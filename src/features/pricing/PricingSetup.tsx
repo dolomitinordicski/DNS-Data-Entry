@@ -12,6 +12,7 @@ interface Props {
   organizations: CanonicalRecord[];
   rows: PricingDraftRow[];
   onChange: (rows: PricingDraftRow[]) => void;
+  readOnly?: boolean;
 }
 
 const text = {
@@ -58,9 +59,11 @@ const text = {
 function PriceInput({
   value,
   onChange,
+  disabled = false,
 }: {
   value: number | null;
   onChange: (value: number | null) => void;
+  disabled?: boolean;
 }) {
   return (
     <div className="relative">
@@ -70,16 +73,17 @@ function PriceInput({
         min="0"
         step="0.01"
         value={value ?? ''}
+        disabled={disabled}
         onChange={(event) =>
           onChange(event.target.value === '' ? null : Number(event.target.value))
         }
-        className="w-[96px] rounded-md border border-dns-mid/20 bg-white py-1.5 pl-6 pr-2 text-right font-alt text-[11px] text-dns-deep outline-none focus:border-dns-mid"
+        className="w-[96px] rounded-md border border-dns-mid/20 bg-white py-1.5 pl-6 pr-2 text-right font-alt text-[11px] text-dns-deep outline-none focus:border-dns-mid disabled:bg-dns-bg disabled:text-dns-muted"
       />
     </div>
   );
 }
 
-export function PricingSetup({ language, seasonId, reportingAreas, organizations, rows, onChange }: Props) {
+export function PricingSetup({ language, seasonId, reportingAreas, organizations, rows, onChange, readOnly = false }: Props) {
   const t = text[language];
   const [selectedArea, setSelectedArea] = useState(reportingAreas[0]?.id ?? '');
   const [overrideOrg, setOverrideOrg] = useState('');
@@ -97,10 +101,12 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
   );
 
   function patch(id: string, values: Partial<PricingDraftRow>) {
+    if (readOnly) return;
     onChange(rows.map((row) => (row.id === id ? { ...row, ...values } : row)));
   }
 
   function addOverride() {
+    if (readOnly) return;
     if (!overrideOrg || !overrideProduct) return;
     const id = `${seasonId}-${overrideOrg}-${overrideProduct}-official-regular`;
     if (rows.some((row) => row.id === id)) return;
@@ -157,6 +163,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
                 <div className="flex justify-end">
                   <PriceInput
                     value={row.unitPrice}
+                    disabled={readOnly}
                     onChange={(value) =>
                       patch(row.id, {
                         unitPrice: value,
@@ -173,6 +180,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
                 <div className="flex justify-end">
                   <PriceInput
                     value={row.settlementUnitPrice}
+                    disabled={readOnly}
                     onChange={(value) => patch(row.id, { settlementUnitPrice: value })}
                   />
                 </div>
@@ -229,6 +237,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
           <select
             value={overrideOrg}
+            disabled={readOnly}
             onChange={(event) => setOverrideOrg(event.target.value)}
             className="rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-[11px]"
           >
@@ -241,6 +250,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
           </select>
           <select
             value={overrideProduct}
+            disabled={readOnly}
             onChange={(event) => setOverrideProduct(event.target.value)}
             className="rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-[11px]"
           >
@@ -254,7 +264,8 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
           <button
             type="button"
             onClick={addOverride}
-            className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white hover:bg-dns-mid"
+            disabled={readOnly}
+            className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white hover:bg-dns-mid disabled:cursor-not-allowed disabled:opacity-40"
           >
             {t.addOverride}
           </button>
