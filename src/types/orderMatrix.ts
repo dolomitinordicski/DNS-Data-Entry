@@ -58,3 +58,20 @@ export interface PersistedOrderMatrix {
   persistedOrderIds: Set<string>;
   persistedLineIds: Set<string>;
 }
+
+
+export type PocketfolderSourceCell = number | '/' | null;
+
+export interface PocketfolderSourceRow {
+  id: string;
+  seasonId: string;
+  sourceRow: number;
+  label: string;
+  comparison2025: PocketfolderSourceCell;
+  requested2026: PocketfolderSourceCell;
+  dnsCopies: PocketfolderSourceCell;
+  areaTotal2026: PocketfolderSourceCell;
+  printerTotal2026: PocketfolderSourceCell;
+  backLanguageNote: string;
+  rowKind: 'area' | 'distribution' | 'total' | 'note' | 'blank';
+}
