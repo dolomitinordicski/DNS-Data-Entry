@@ -39,6 +39,7 @@
   --dns-scroll-progress-height: 3px;
   --dns-scroll-progress-color: #AAD0D1;
   --dns-scroll-progress-track: transparent;
+  --dns-header-height: 68px;
 }
 
 @layer base {
@@ -100,7 +101,7 @@
 
   .dns-tab-nav {
     position: sticky;
-    top: 68px;
+    top: var(--dns-header-height);
     z-index: 25;
     background: var(--dns-nav-surface-bg);
     backdrop-filter: blur(var(--dns-nav-backdrop-blur));
@@ -112,6 +113,7 @@
   }
 
   .dns-scroll-progress-track {
+    position: relative;
     width: 100%;
     height: var(--dns-scroll-progress-height);
     overflow: hidden;
