@@ -233,7 +233,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
             aria-label={t.areaLabel}
             value={selectedArea}
             onChange={(event) => setSelectedArea(event.target.value)}
-            className="rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-[11px] text-dns-deep outline-none"
+            className="dns-context-selector px-3 py-2 text-[11px] outline-none"
           >
             {reportingAreas.map((area) => (
               <option key={area.id} value={area.id}>
