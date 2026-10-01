@@ -33,6 +33,8 @@ import {
   dnsRuntimeSignature,
   loadAndApplyDNSDesignSystem,
 } from './services/designSystem';
+import { DNS_DESIGN_FALLBACK } from './design/fallback';
+import { initDNSToolChromeRuntime } from '@dolomitinordicski/dns-shared-data/ui/tool-chrome';
 import { initDNSUIRuntime } from './services/uiRuntime';
 import { formatDNSCoreHeaderStatus } from '@dolomitinordicski/dns-shared-data/ui/header-status';
 import type { DNSAccessContext, DNSPermission } from './types/access';
@@ -142,6 +144,10 @@ function App() {
   );
 
   const effectiveAccess = developmentMode ? devAccessFor(devPersona) : access;
+  const hasToolAccess =
+    developmentMode ||
+    (effectiveAccess?.profile?.active === true &&
+      (effectiveAccess.isAdmin || effectiveAccess.permissions.size > 0));
 
   useEffect(() => {
     let disposed = false;
@@ -162,6 +168,23 @@ function App() {
       disposeRuntime?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (!hasToolAccess) return;
+    let chrome: ReturnType<typeof initDNSToolChromeRuntime> | null = null;
+    const frame = window.requestAnimationFrame(() => {
+      chrome = initDNSToolChromeRuntime({
+        navigation: DNS_DESIGN_FALLBACK.navigation,
+        responsive: DNS_DESIGN_FALLBACK.responsive,
+        headerTokens: DNS_DESIGN_FALLBACK.header,
+        motion: DNS_DESIGN_FALLBACK.motion,
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      chrome?.disconnect();
+    };
+  }, [hasToolAccess]);
 
   useEffect(() => {
     return subscribeToAuth((user) => {
@@ -300,10 +323,7 @@ function App() {
     );
   }
 
-  const hasAccess =
-    developmentMode ||
-    (access?.profile?.active === true &&
-      (access.isAdmin || access.permissions.size > 0));
+  const hasAccess = hasToolAccess;
 
   if (!hasAccess) {
     return (
