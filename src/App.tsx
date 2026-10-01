@@ -1,3 +1,4 @@
+import { ActiveArea } from './components/ActiveArea';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { DNS_SHARED_BRAND } from './config/brand';
@@ -429,6 +430,12 @@ function App() {
               organizations={master.organizations}
               isAdmin={access?.isAdmin === true}
             />
+          )}
+
+          {(activeModule === 'sales' || activeModule === 'kp') && master && (
+            <ActiveArea key={activeModule} master={master} access={access}
+              developmentMode={developmentMode} language={language}
+              permission={activeModule === 'sales' ? 'ticketSales.read' : 'kp.read'} />
           )}
 
           {!['season', 'pricing', 'orders'].includes(activeModule) && (
