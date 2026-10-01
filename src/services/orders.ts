@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './dnsCore';
 import {
+  pocketfolderOrderDraft2026,
   ticketOrderDraft2026,
   wristbandOrderDraft2026,
 } from '../config/orders2026';
@@ -35,16 +36,18 @@ function lineId(
   return `${orderId(seasonId, category, organizationId)}__${itemId}`;
 }
 
-function fallbackSourceLabel(
+function fallbackDraft(category: OrderMatrixCategory) {
+  if (category === 'wristband') return wristbandOrderDraft2026;
+  if (category === 'pocketfolder') return pocketfolderOrderDraft2026;
+  return ticketOrderDraft2026;
+}
+
+function fallbackOrganization(
   category: OrderMatrixCategory,
   organizationId: string,
 ) {
-  const fallback =
-    category === 'wristband' ? wristbandOrderDraft2026 : ticketOrderDraft2026;
-  return (
-    fallback.organizations.find(
-      (organization) => organization.organizationId === organizationId,
-    )?.sourceLabel ?? organizationId
+  return fallbackDraft(category).organizations.find(
+    (organization) => organization.organizationId === organizationId,
   );
 }
 
@@ -59,9 +62,12 @@ export async function loadPersistedOrderMatrix({
   visibleOrganizationIds: Set<string>;
   organizationAreaById: Record<string, string | undefined>;
 }): Promise<PersistedOrderMatrix> {
-  const [catalogSnapshot, formSnapshot] = await Promise.all([
+  const [catalogSnapshot, formSnapshot, deliverySnapshot] = await Promise.all([
     getDocs(collection(db, 'orderCatalogItems')),
     getDoc(doc(db, 'orderFormConfigs', `${seasonId}-${category}`)),
+    category === 'pocketfolder'
+      ? getDocs(collection(db, 'deliveryLocations'))
+      : Promise.resolve(null),
   ]);
 
   if (!formSnapshot.exists()) {
@@ -89,11 +95,28 @@ export async function loadPersistedOrderMatrix({
     visibleOrganizationIds.has(id),
   );
 
-  const organizations = organizationIds.map((organizationId) => ({
-    organizationId,
-    reportingAreaId: organizationAreaById[organizationId],
-    sourceLabel: fallbackSourceLabel(category, organizationId),
-  }));
+  const deliveryById = new Map(
+    deliverySnapshot?.docs.map((item) => [
+      item.id,
+      { id: item.id, ...item.data() },
+    ]) ?? [],
+  );
+
+  const organizations = organizationIds.map((organizationId) => {
+    const fallback = fallbackOrganization(category, organizationId);
+    const defaultDeliveryLocationId = fallback?.defaultDeliveryLocationId;
+    const deliveryLocation = defaultDeliveryLocationId
+      ? deliveryById.get(defaultDeliveryLocationId)
+      : undefined;
+
+    return {
+      organizationId,
+      reportingAreaId: organizationAreaById[organizationId],
+      sourceLabel: fallback?.sourceLabel ?? organizationId,
+      ...(defaultDeliveryLocationId ? { defaultDeliveryLocationId } : {}),
+      ...(deliveryLocation ? { deliveryLocation } : {}),
+    };
+  });
 
   const persistedOrderIds = new Set<string>();
   const persistedLineIds = new Set<string>();
