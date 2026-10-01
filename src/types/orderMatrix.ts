@@ -1,4 +1,4 @@
-export type OrderMatrixCategory = 'wristband' | 'ticket';
+export type OrderMatrixCategory = 'wristband' | 'ticket' | 'pocketfolder';
 
 export interface OrderMatrixItem {
   id: string;
@@ -11,12 +11,32 @@ export interface OrderMatrixItem {
   displayColorHex?: string;
   displayTextColorHex?: string;
   supplierColorReference?: string;
+  pocketfolder?: {
+    reportingAreaId: string;
+    backLanguageOrder: 'de-it-en' | 'it-de-en';
+    sourceComparison2025: number;
+    sourceAreaTotal2026: number;
+    sourcePrinterTotal2026: number;
+    areaTotalOrganizationIds: string[];
+  };
 }
 
 export interface OrderMatrixOrganization {
   organizationId: string;
   reportingAreaId?: string;
   sourceLabel: string;
+  defaultDeliveryLocationId?: string;
+  deliveryLocation?: {
+    id: string;
+    label: string;
+    contactName?: string;
+    recipientName: string;
+    addressLine1?: string;
+    postalLocality?: string;
+    phone?: string;
+    status: 'verified' | 'needs-confirmation' | 'incomplete';
+    notes?: string;
+  };
 }
 
 export interface OrderMatrixCell {
