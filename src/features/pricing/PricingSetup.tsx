@@ -14,6 +14,10 @@ interface Props {
   rows: PricingDraftRow[];
   onChange: (rows: PricingDraftRow[]) => void;
   readOnly?: boolean;
+  onSave: () => void;
+  saving: boolean;
+  canSave: boolean;
+  saveStatus: string;
 }
 
 const text = {
@@ -29,7 +33,7 @@ const text = {
     channel: 'Kanal',
     product: 'Produkt',
     areaLabel: 'Gebiet',
-    noWrite: 'Entwurf · noch keine Firestore-Schreibrechte',
+    noWrite: 'Tarife · explizit in Firebase speichern',
     inherited: 'Nur für bestätigte Ausnahmen. Priorität: Organisation → Gebiet → DNS.',
     selectOrg: 'Organisation wählen',
     selectProduct: 'Produkt wählen',
@@ -48,7 +52,7 @@ const text = {
     channel: 'Canale',
     product: 'Prodotto',
     areaLabel: 'Area',
-    noWrite: 'Bozza · scrittura Firestore non ancora attiva',
+    noWrite: 'Tariffe · salvataggio esplicito in Firebase',
     inherited: 'Solo per eccezioni confermate. Priorità: organizzazione → area → DNS.',
     selectOrg: 'Seleziona organizzazione',
     selectProduct: 'Seleziona prodotto',
@@ -84,7 +88,7 @@ function PriceInput({
   );
 }
 
-export function PricingSetup({ language, seasonId, reportingAreas, organizations, rows, onChange, readOnly = false }: Props) {
+export function PricingSetup({ language, seasonId, reportingAreas, organizations, rows, onChange, readOnly = false, onSave, saving, canSave, saveStatus }: Props) {
   const t = text[language];
   const [selectedArea, setSelectedArea] = useState(reportingAreas[0]?.id ?? '');
   const [overrideOrg, setOverrideOrg] = useState('');
@@ -202,7 +206,13 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
             <h2 className="mt-1 text-[24px] font-semibold">{t.title}</h2>
             <p className="mt-2 max-w-4xl font-alt text-[12px] leading-relaxed text-dns-muted">{t.intro}</p>
           </div>
-          <span className="dns-pill">{t.noWrite}</span>
+          <div className="space-y-2">
+            <span className="dns-pill">{t.noWrite}</span>
+            <button type="button" disabled={!canSave || saving} onClick={onSave} className="block rounded-md bg-dns-deep px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-40">
+              {saving ? (language === 'de' ? 'Speichern…' : 'Salvataggio…') : (language === 'de' ? 'In Firebase speichern' : 'Salva in Firebase')}
+            </button>
+            <p role="status" className="max-w-[320px] break-words font-alt text-[11px]">{saveStatus}</p>
+          </div>
         </div>
       </section>
 

@@ -1,3 +1,4 @@
+import { loadPricing, savePricing, persistenceMessage } from './services/seasonalPersistence';
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
 import { ActiveArea } from './components/ActiveArea';
@@ -109,6 +110,9 @@ function App() {
   const [activeModule, setActiveModule] = useState<ModuleId>('season');
   const [master, setMaster] = useState<DNSCoreMaster | null>(null);
   const [connection, setConnection] = useState<ConnectionState>('loading');
+  const [pricingStatus, setPricingStatus] = useState('');
+  const [pricingBusy, setPricingBusy] = useState(false);
+  const [pricingLoaded, setPricingLoaded] = useState(false);
   const [salesRows, setSalesRows] = useState<SalesDraftRow[]>([]);
   const [pricingRows, setPricingRows] = useState<PricingDraftRow[]>([]);
   const [authUser, setAuthUser] = useState<User | null>(null);
@@ -179,6 +183,33 @@ function App() {
           ),
     );
   }, [master, activeSeason]);
+
+  useEffect(() => {
+    let active = true;
+    setPricingLoaded(false);
+    if (!activeSeason || !authReady || !access?.profile?.active || developmentMode) { setPricingBusy(false); return; }
+    setPricingBusy(true);
+    setPricingStatus('');
+    loadPricing(String(activeSeason.id)).then((saved) => {
+      if (!active) return;
+      setPricingRows((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
+      setPricingLoaded(true);
+    }).catch((error) => { if (active) setPricingStatus(persistenceMessage(error, language)); })
+      .finally(() => { if (active) setPricingBusy(false); });
+    return () => { active = false; };
+  }, [activeSeason?.id, authReady, access?.profile?.id, developmentMode]);
+
+  async function persistPricing() {
+    setPricingBusy(true);
+    setPricingStatus('');
+    try {
+      const saved = await savePricing(pricingRows);
+      setPricingRows((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
+      setPricingStatus(language === 'de' ? 'In Firebase gespeichert' : 'Salvato in Firebase');
+    } catch (error) {
+      setPricingStatus(persistenceMessage(error, language));
+    } finally { setPricingBusy(false); }
+  }
 
   const effectivePermissions = developmentMode
     ? DEV_PERMISSIONS
@@ -420,8 +451,11 @@ function App() {
               reportingAreas={master.reportingAreas}
               organizations={master.organizations}
               rows={pricingRows}
-              onChange={setPricingRows}
-              readOnly={!canManagePricing}
+              onChange={(rows) => { setPricingStatus(''); setPricingRows(rows); }}
+              readOnly={!canManagePricing || pricingBusy}
+              onSave={persistPricing} saving={pricingBusy}
+              canSave={canManagePricing && pricingLoaded && !developmentMode}
+              saveStatus={pricingStatus}
             />
           )}
 
@@ -447,7 +481,7 @@ function App() {
             <SalesEntry master={master} access={access} developmentMode={developmentMode}
               canWrite={effectivePermissions.has('ticketSales.write')} language={language}
               seasonId={String(activeSeason.id)} pricingRows={pricingRows}
-              rows={salesRows} onChange={setSalesRows} />
+              rows={salesRows} onChange={setSalesRows} pricingLoaded={pricingLoaded} />
           )}
 
           {!['season', 'pricing', 'orders', 'sales'].includes(activeModule) && (
