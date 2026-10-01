@@ -1,3 +1,4 @@
+import { RegionLogos } from '../../components/RegionLogos';
 import { useMemo, useState } from 'react';
 import { channelLabels, periodLabels, productLabels } from '../../config/pricing';
 import type { CanonicalRecord } from '../../types/master';
@@ -147,7 +148,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
             <tr key={row.id} className="border-b border-dns-mid/10 last:border-b-0">
               {includeArea && (
                 <td className="px-3 py-2 text-[11px] font-semibold">
-                  {String(areaById[row.scopeId]?.canonicalName ?? row.scopeId)}
+                  <div className="dns-entity-label"><RegionLogos entityType="reportingArea" entityId={row.scopeId} /><span>{String(areaById[row.scopeId]?.canonicalName ?? row.scopeId)}</span></div>
                 </td>
               )}
               <td className="px-3 py-2 text-[11px] font-semibold">

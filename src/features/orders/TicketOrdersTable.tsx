@@ -1,3 +1,4 @@
+import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useMemo, useState } from 'react';
 import {
   cloneOrderDraft,
@@ -694,7 +695,7 @@ export function TicketOrdersTable({
                       rowIndex % 2 ? 'bg-[#f7fafb]' : 'bg-white',
                     ].join(' ')}
                   >
-                    {organization.sourceLabel}
+                    <div className="dns-entity-label"><RegionLogos entityType="organization" entityId={organization.organizationId} /><span>{organization.sourceLabel}</span></div>
                   </td>
                   {draft.items.map((item) => {
                     const key = `${organization.organizationId}::${item.id}`;
