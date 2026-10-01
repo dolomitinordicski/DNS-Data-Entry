@@ -1,9 +1,8 @@
 import { HistoricalSeason } from './features/season/HistoricalSeason';
-import { KPSeasonOverview } from './features/kp/KPSeasonOverview';
+import { KPDataEntry } from './features/kp/KPDataEntry';
 import { loadPricing, savePricing, persistenceMessage } from './services/seasonalPersistence';
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
-import { ActiveArea } from './components/ActiveArea';
 import { ScrollProgress } from './components/ScrollProgress';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
@@ -532,16 +531,16 @@ function App() {
             </div>
           )}
 
-          {!historicalSeason && activeModule === 'kp' && master && activeSeason && (
-            <div key="kp" data-dns-reveal className="space-y-5">
-              <KPSeasonOverview
+          {!historicalSeason && activeModule === 'kp' && master && activeSeason && access && (
+            <div key="kp" data-dns-reveal>
+              <KPDataEntry
                 seasonId={String(activeSeason.id)}
                 language={language}
-                reportingAreas={master.reportingAreas}
+                master={master}
+                access={access}
+                canWrite={effectivePermissions.has('kp.write')}
+                developmentMode={developmentMode}
               />
-              <ActiveArea master={master} access={access}
-                developmentMode={developmentMode} language={language}
-                permission='kp.read' />
             </div>
           )}
 
