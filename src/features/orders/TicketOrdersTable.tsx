@@ -447,6 +447,10 @@ export function TicketOrdersTable({
     quantity: number | null,
   ) {
     if (!canWrite || !current) return;
+    if (!isAdmin && !developmentMode) {
+      const status = current.orderStatuses[organizationId] ?? 'draft';
+      if (status !== 'draft' || !writableOrganizationIds.has(organizationId)) return;
+    }
 
     const nextDraft: OrderMatrixDraft = {
       ...current.draft,
@@ -475,18 +479,30 @@ export function TicketOrdersTable({
     setSaving(true);
     setError(false);
     try {
+      const editableOrganizationIds =
+        !isAdmin && !developmentMode
+          ? new Set(
+              [...writableOrganizationIds].filter(
+                (organizationId) =>
+                  (current.orderStatuses[organizationId] ?? 'draft') === 'draft',
+              ),
+            )
+          : writableOrganizationIds;
+
       const saveDraft =
         !isAdmin && !developmentMode
           ? {
               ...current.draft,
               organizations: current.draft.organizations.filter((organization) =>
-                writableOrganizationIds.has(organization.organizationId),
+                editableOrganizationIds.has(organization.organizationId),
               ),
               cells: current.draft.cells.filter((cell) =>
-                writableOrganizationIds.has(cell.organizationId),
+                editableOrganizationIds.has(cell.organizationId),
               ),
             }
           : current.draft;
+
+      if (!isAdmin && !developmentMode && saveDraft.organizations.length === 0) return;
 
       await savePersistedOrderMatrix({
         draft: saveDraft,
