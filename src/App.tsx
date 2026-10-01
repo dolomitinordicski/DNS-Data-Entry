@@ -4,8 +4,9 @@ import { loadPricing, savePricing, persistenceMessage } from './services/seasona
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
 import { ScrollProgress } from './components/ScrollProgress';
+import { NavigationRuntimeMount } from './components/NavigationRuntimeMount';
 import { AccessibilityMount } from './components/AccessibilityMount';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { DNS_SHARED_BRAND } from './config/brand';
 import { MODULE_READ_PERMISSION } from './config/access';
@@ -135,31 +136,7 @@ function App() {
   const [developmentMode, setDevelopmentMode] = useState(
     () => sessionStorage.getItem('dns-development-mode') === '1',
   );
-  const headerRef = useRef<HTMLElement | null>(null);
-
   const t = copy[language];
-
-  useEffect(() => {
-    const header = headerRef.current;
-    if (!header) return;
-
-    const updateHeaderHeight = () => {
-      document.documentElement.style.setProperty(
-        '--dns-header-height',
-        `${Math.ceil(header.getBoundingClientRect().height)}px`,
-      );
-    };
-
-    const observer = new ResizeObserver(updateHeaderHeight);
-    observer.observe(header);
-    updateHeaderHeight();
-    window.addEventListener('resize', updateHeaderHeight);
-
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', updateHeaderHeight);
-    };
-  }, []);
 
   useEffect(() => {
     let disposed = false;
@@ -379,7 +356,7 @@ function App() {
       data-dns-data-contracts-version={DNS_DATA_CONTRACTS_VERSION}
       data-dns-active-contracts={activeDataContracts.map((contract) => contract.id).join(',')}
     >
-      <header ref={headerRef} className="sticky top-0 z-30 bg-dns-deep text-white shadow-[0_1px_0_rgba(255,255,255,.08)]">
+      <header id="dns-data-entry-header" className="sticky top-0 z-30 bg-dns-deep text-white shadow-[0_1px_0_rgba(255,255,255,.08)]">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3.5 md:px-8">
           <div className="flex items-center gap-4">
             <img
@@ -467,7 +444,7 @@ function App() {
         </div>
       )}
 
-      <nav className="dns-tab-nav" aria-label={t.operations}>
+      <nav id="dns-data-entry-nav" className="dns-tab-nav" aria-label={t.operations}>
         <ScrollProgress />
         <div className="dns-tab-nav-inner">
           {master && activeSeason && <SeasonSelector
@@ -495,6 +472,8 @@ function App() {
           ))}
         </div>
       </nav>
+
+      <NavigationRuntimeMount />
 
       <div className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-5 md:px-8">
         <main className="space-y-5">
