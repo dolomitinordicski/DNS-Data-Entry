@@ -3,8 +3,6 @@ import { KPDataEntry } from './features/kp/KPDataEntry';
 import { loadPricing, savePricing, persistenceMessage } from './services/seasonalPersistence';
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
-import { ScrollProgress } from './components/ScrollProgress';
-import { NavigationRuntimeMount } from './components/NavigationRuntimeMount';
 import { AccessibilityMount } from './components/AccessibilityMount';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
@@ -359,7 +357,7 @@ function App() {
       data-dns-data-contracts-version={DNS_DATA_CONTRACTS_VERSION}
       data-dns-active-contracts={activeDataContracts.map((contract) => contract.id).join(',')}
     >
-      <header id="dns-data-entry-header" className="sticky top-0 z-30 bg-dns-deep text-white shadow-[0_1px_0_rgba(255,255,255,.08)]">
+      <header data-dns-tool-header id="dns-data-entry-header" className="bg-dns-deep text-white shadow-[0_1px_0_rgba(255,255,255,.08)]">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3.5 md:px-8">
           <div className="flex items-center gap-4">
             <img
@@ -477,8 +475,7 @@ function App() {
         </div>
       )}
 
-      <nav id="dns-data-entry-nav" className="dns-tab-nav" aria-label={t.operations}>
-        <ScrollProgress />
+      <nav data-dns-tool-nav id="dns-data-entry-nav" className="dns-tab-nav" aria-label={t.operations}>
         <div className="dns-tab-nav-inner">
           {master && activeSeason && <SeasonSelector
             seasons={master.seasons
@@ -506,7 +503,6 @@ function App() {
         </div>
       </nav>
 
-      <NavigationRuntimeMount />
 
       <div className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-5 md:px-8">
         <main className="space-y-5">
