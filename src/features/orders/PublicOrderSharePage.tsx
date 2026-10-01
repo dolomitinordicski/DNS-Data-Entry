@@ -6,6 +6,10 @@ import {
   loadPublicOrderShare,
   type PublicOrderShareDocument,
 } from '../../services/publicOrderShares';
+import {
+  exportPublicOrderCsv,
+  exportPublicOrderExcel,
+} from '../../services/orderExport';
 
 type Language = 'de' | 'it';
 
@@ -15,6 +19,8 @@ const copy = {
     loading: 'Bestellung wird geladen…',
     unavailable: 'Dieser öffentliche Link ist nicht verfügbar oder wurde widerrufen.',
     print: 'Drucken',
+    exportCsv: 'CSV exportieren',
+    exportExcel: 'Excel exportieren',
     total: 'Gesamt',
     organization: 'Organisation',
     generatedAt: 'Stand',
@@ -28,6 +34,8 @@ const copy = {
     loading: 'Caricamento ordine…',
     unavailable: 'Questo link pubblico non è disponibile oppure è stato revocato.',
     print: 'Stampa',
+    exportCsv: 'Esporta CSV',
+    exportExcel: 'Esporta Excel',
     total: 'Totale',
     organization: 'Organizzazione',
     generatedAt: 'Aggiornato',
@@ -161,6 +169,24 @@ export function PublicOrderSharePage({
                 </button>
               ))}
             </div>
+            {share && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => exportPublicOrderCsv(share, language)}
+                  className="rounded-md border border-white/30 bg-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white"
+                >
+                  {t.exportCsv}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => exportPublicOrderExcel(share, language)}
+                  className="rounded-md border border-white/30 bg-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white"
+                >
+                  {t.exportExcel}
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => window.print()}
