@@ -329,7 +329,7 @@ function App() {
                   onClick={() => setLanguage(lang)}
                   data-dns-press
                   className={[
-                    'border-0 border-b-2 bg-transparent px-1 py-1 text-white transition',
+                    'border-0 border-b-2 bg-transparent px-1 py-1 text-white',
                     language === lang ? 'border-white' : 'border-transparent opacity-60',
                   ].join(' ')}
                 >
