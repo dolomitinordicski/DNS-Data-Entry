@@ -24,7 +24,7 @@ async function saveRevision(collectionName: string, id: string, expectedRevision
   return runTransaction(db, async (transaction) => {
     const existing = await transaction.get(ref);
     const previous = existing.exists() ? existing.data() : null;
-    if (previous && Object.entries(payload).every(([key, value]) => JSON.stringify(previous[key]) === JSON.stringify(value))) return previous.revision as number;
+    if (previous && Object.entries(payload).filter(([key]) => !['updatedAt','updatedBy','provenance','revision'].includes(key)).every(([key, value]) => JSON.stringify(previous[key]) === JSON.stringify(value))) return previous.revision as number;
     if ((previous?.revision ?? 0) !== expectedRevision) throw new Error('CONFLICT_RELOAD');
     if (previous?.provenance?.dataStatus && previous.provenance.dataStatus !== 'draft') throw new Error('RECORD_LOCKED');
     if (pricing) {
