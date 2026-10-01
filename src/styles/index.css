@@ -81,6 +81,27 @@
     white-space: nowrap;
   }
 
+  .dns-season-select {
+    appearance: none;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+  }
+
+  .dns-season-select:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+  }
+
+  .dns-season-select option {
+    background: #fff;
+    color: var(--color-dns-deep, #123b47);
+  }
+
   .dns-tab {
     flex: 0 0 auto;
     border: 0;
