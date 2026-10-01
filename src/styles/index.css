@@ -330,3 +330,12 @@
     background: #0D4D5E !important;
   }
 }
+
+/* Shared regional marks retain source colors and aspect ratio. */
+.dns-entity-label { display: flex; align-items: center; gap: .65rem; }
+.dns-region-logos { display: inline-flex; align-items: center; gap: .4rem; flex-shrink: 0; }
+.dns-region-logo { width: 48px; height: 32px; object-fit: contain; }
+@media print {
+  .dns-region-logo { width: 30px; height: 22px; }
+  .dns-entity-label { gap: 4px; }
+}

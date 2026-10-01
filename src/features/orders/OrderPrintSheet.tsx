@@ -1,3 +1,4 @@
+import { RegionLogos } from '../../components/RegionLogos';
 import { createPortal } from 'react-dom';
 import { DNS_SHARED_BRAND } from '../../config/brand';
 import type {
@@ -144,7 +145,7 @@ export function OrderPrintSheet({
         <tbody>
           {organizations.map((organization) => (
             <tr key={organization.organizationId}>
-              <td>{organization.sourceLabel}</td>
+              <td><div className="dns-entity-label"><RegionLogos entityType="organization" entityId={organization.organizationId} /><span>{organization.sourceLabel}</span></div></td>
               {items.map((item) => {
                 const value =
                   quantities.get(`${organization.organizationId}::${item.id}`) ??

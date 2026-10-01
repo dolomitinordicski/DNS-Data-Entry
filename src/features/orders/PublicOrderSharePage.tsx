@@ -1,3 +1,4 @@
+import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useMemo, useState } from 'react';
 import { DNS_SHARED_BRAND } from '../../config/brand';
 import { OrderPrintSheet } from './OrderPrintSheet';
@@ -261,7 +262,7 @@ export function PublicOrderSharePage({
                     className="border-b border-dns-mid/10"
                   >
                     <td className="px-4 py-2.5 text-[11px] font-semibold">
-                      {organization.sourceLabel}
+                      <div className="dns-entity-label"><RegionLogos entityType="organization" entityId={organization.organizationId} /><span>{organization.sourceLabel}</span></div>
                     </td>
                     {snapshot.items.map((item) => {
                       const value =
