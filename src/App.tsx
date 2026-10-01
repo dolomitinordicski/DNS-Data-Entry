@@ -425,7 +425,7 @@ function App() {
           <label className="dns-tab-season">
             WS <select className="dns-season-select" aria-label={language === 'it' ? 'Stagione' : 'Saison'} value={String(activeSeason?.id ?? '')} onChange={(event) => setSelectedSeasonId(event.target.value)}>
               {master?.seasons.filter(season => season.status === 'active' || season.id === '2025-26').map(season => <option key={season.id} value={String(season.id)}>{String(season.id)}</option>)}
-            </select><span aria-hidden="true" className="ml-1">⌄</span>
+            </select><span aria-hidden="true" className="dns-season-chevron" />
           </label>
           {allowedModules.map((module) => (
             <button
