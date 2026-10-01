@@ -74,10 +74,11 @@ function metric(value: number, language: Language, digits = 1) {
   return value.toLocaleString(language === 'it' ? 'it-IT' : 'de-DE', { maximumFractionDigits: digits });
 }
 
-function statusFor(kp: number, language: Language) {
-  if (kp >= 70) return language === 'it' ? 'Alta dipendenza KS' : 'Hohe KS-Abhängigkeit';
-  if (kp >= 30) return language === 'it' ? 'Mix KS / NS' : 'Mix KS / NS';
-  return language === 'it' ? 'Prevalenza NS' : 'Überwiegend Naturschnee';
+function kpComposition(natural: number, artificial: number) {
+  const total = natural + artificial;
+  return total > 0
+    ? { natural: natural / total * 100, artificial: artificial / total * 100, total }
+    : { natural: 0, artificial: 0, total: 0 };
 }
 
 function EmptyFramework({ seasonId, language, reportingAreas }: {
@@ -157,12 +158,17 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
     return <EmptyFramework seasonId={seasonId} language={language} reportingAreas={reportingAreas} />;
   }
 
-  const finalMilestone = CURATED_2025_26.map((area) => ({
-    ...area,
-    final: area.milestones[2],
-    openingPct: pct(area.milestones[2].openedKm, area.potentialKm),
-    kp: pct(area.milestones[2].artificialKm, area.potentialKm),
-  }));
+  const finalMilestone = CURATED_2025_26.map((area) => {
+    const final = area.milestones[2];
+    const naturalKm = Math.max(0, final.openedKm - final.artificialKm);
+    return {
+      ...area,
+      final,
+      naturalKm,
+      openingPct: pct(final.openedKm, area.potentialKm),
+      kp: kpComposition(naturalKm, final.artificialKm),
+    };
+  });
 
   const rawByArea = new Map<string, KpSourceRecord[]>();
   for (const record of records) {
@@ -175,11 +181,11 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
     <section className="dns-card p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="dns-section-title">KP · WS 2025–26</h2>
-          <p className="mt-2 max-w-3xl text-sm text-dns-muted">
+          <h2 className="dns-section-title">KP · Kunstschneeproduktion · WS 2025–26</h2>
+          <p className="mt-2 max-w-4xl text-sm text-dns-muted">
             {it
-              ? 'Quadro regionale curato dal precedente DNS Analytics, affiancato ai record partner originali e immutabili conservati nello storico.'
-              : 'Kuratierte Regionssicht aus dem bisherigen DNS Analytics, ergänzt um die unveränderlichen Original-Partnerdaten aus der Historie.'}
+              ? 'KP esprime il rapporto tra chilometri con neve naturale (NS) e chilometri con neve artificiale (KS) allo stesso momento di rilevazione, mostrato come quota NS / quota KS sul totale NS+KS. Il quadro regionale curato è affiancato ai record partner originali e immutabili.'
+              : 'KP beschreibt das Verhältnis zwischen Kilometern mit Naturschnee (NS) und Kilometern mit Kunstschnee (KS) zum selben Stichtag, dargestellt als NS-Anteil / KS-Anteil an NS+KS. Die kuratierte Regionssicht steht neben den unveränderlichen Original-Partnerdaten.'}
           </p>
         </div>
         <span className="dns-pill">{it ? 'Storico verificabile' : 'Prüfbare Historie'}</span>
@@ -216,10 +222,12 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
             <th className="p-2 text-right">23.12.2025</th>
             <th className="p-2 text-right">06.01.2026</th>
             <th className="p-2 text-right">20.01.2026</th>
-            <th className="p-2 text-right">KP</th>
+            <th className="p-2 text-right">KP · NS / KS</th>
           </tr></thead>
           <tbody>{CURATED_2025_26.map((area) => {
-            const kp = pct(area.milestones[2].artificialKm, area.potentialKm);
+            const final = area.milestones[2];
+            const naturalKm = Math.max(0, final.openedKm - final.artificialKm);
+            const kp = kpComposition(naturalKm, final.artificialKm);
             return <tr key={area.id} className="border-t border-dns-mid/10">
               <td className="p-2">
                 <span className="flex items-center gap-2">
@@ -231,7 +239,7 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
                 {metric(pct(milestone.openedKm, area.potentialKm), language)}%
                 <span className="block text-[10px] text-dns-muted">{metric(milestone.openedKm, language)} km</span>
               </td>)}
-              <td className="p-2 text-right tabular-nums"><strong>{metric(kp, language)}%</strong><span className="block text-[10px] text-dns-muted">{statusFor(kp, language)}</span></td>
+              <td className="p-2 text-right tabular-nums"><strong>NS {metric(kp.natural, language)}% / KS {metric(kp.artificial, language)}%</strong><span className="block text-[10px] text-dns-muted">{metric(naturalKm, language)} / {metric(final.artificialKm, language)} km</span></td>
             </tr>;
           })}</tbody>
         </table>
@@ -248,7 +256,7 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
               <div className="font-semibold">{area.names[it ? 0 : 1]}</div>
               <div className="mt-0.5 text-xs text-dns-muted">{metric(area.final.openedKm, language)} / {metric(area.potentialKm, language)} km {it ? 'aperti' : 'geöffnet'}</div>
             </div>
-            <div className="text-right"><div className="text-lg font-semibold">{metric(area.kp, language)}%</div><div className="text-[10px] text-dns-muted">KP</div></div>
+            <div className="text-right"><div className="text-sm font-semibold">NS {metric(area.kp.natural, language)}%</div><div className="text-sm font-semibold">KS {metric(area.kp.artificial, language)}%</div><div className="text-[10px] text-dns-muted">KP</div></div>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-dns-bg">
             <div className="h-full bg-dns-mid" style={{ width: Math.min(100, area.openingPct) + '%' }} />
@@ -256,7 +264,7 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-dns-muted">
             <span>{it ? 'Apertura' : 'Öffnung'} {metric(area.openingPct, language)}%</span>
             <span>KS {metric(area.final.artificialKm, language)} km</span>
-            <span>NS / {it ? 'senza KS' : 'ohne KS'} {metric(Math.max(0, area.final.openedKm - area.final.artificialKm), language)} km</span>
+            <span>NS {metric(area.naturalKm, language)} km</span>
           </div>
         </div>)}
       </div>
@@ -308,8 +316,8 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
       <h3 className="dns-section-title">{it ? 'Nota metodologica' : 'Methodischer Hinweis'}</h3>
       <p className="mt-2 text-sm text-dns-muted">
         {it
-          ? 'Il vecchio file KP contiene denominatori regionali, km partner e percentuali non sempre additivi tra loro. Per questo il quadro regionale curato di Analytics viene conservato come livello interpretativo separato dai record originali. Dal 2026–27 il modello è già predisposto per separare km unici, km potenziali operativi e milestone.'
-          : 'Die alte KP-Datei enthält regionale Nenner, Partner-km und Prozentwerte, die nicht immer additiv sind. Deshalb bleibt die kuratierte Analytics-Regionssicht als eigene Interpretationsebene von den Originaldaten getrennt. Ab 2026/27 ist das Modell bereits für eindeutige Netz-km, operative Potenzial-km und Meilensteine vorbereitet.'}
+          ? 'KP = Kunstschneeproduktion. Il valore KP è la composizione NS/KS dei chilometri aperti alla stessa data; i km potenziali servono invece a misurare l’apertura della rete e non sono il denominatore del KP. Il vecchio file contiene valori regionali e partner non sempre additivi, quindi il quadro curato resta separato dai record originali.'
+          : 'KP = Kunstschneeproduktion. Der KP-Wert ist die NS/KS-Zusammensetzung der zum selben Stichtag geöffneten Kilometer; potenzielle Kilometer messen dagegen die Netzöffnung und sind nicht der KP-Nenner. Die alte Datei enthält Regions- und Partnerwerte, die nicht immer additiv sind; deshalb bleibt die kuratierte Sicht von den Originaldaten getrennt.'}
       </p>
     </section>
   </div>;
