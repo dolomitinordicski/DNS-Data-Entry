@@ -187,7 +187,7 @@ function App() {
     [master, selectedSeasonId],
   );
 
-  const historicalSeason = activeSeason?.id === '2025-26';
+  const historicalSeason = activeSeason?.status === 'historical';
 
   useEffect(() => {
     setSalesRows([]);
@@ -425,7 +425,7 @@ function App() {
         <div className="dns-tab-nav-inner">
           {master && activeSeason && <SeasonSelector
             seasons={master.seasons
-              .filter((season) => season.status === 'active' || season.id === '2025-26')
+              .filter((season) => season.status === 'active' || ['2024-25', '2025-26'].includes(String(season.id)))
               .sort((a, b) => String(b.id).localeCompare(String(a.id)))}
             selectedSeasonId={String(activeSeason.id)}
             language={language}
@@ -472,7 +472,7 @@ function App() {
             </div>
           </section>
 
-          {historicalSeason && <HistoricalSeason module={activeModule} access={access} language={language} />}
+          {historicalSeason && <HistoricalSeason seasonId={String(activeSeason.id)} module={activeModule} access={access} language={language} />}
 
           {!historicalSeason && activeModule === 'season' && (
             <div key="season" data-dns-reveal>
