@@ -9,3 +9,16 @@ Tariffs use `ticketPricingConfigs`; sales use `ticketSales`. Authenticated users
 Saves are transactions per row; a multi-row save can stop after earlier rows succeeded. Retrying unchanged values is idempotent. A missing quantity remains unreported; use zero for no sales. Saved values cannot be silently cleared. The user must reload after a concurrent-edit conflict.
 
 Rules and reproducible emulator tests live in `dns-shared-data` (`npm run test:rules`, Node 22 + Java 17). The shared repository's existing Firebase deploy workflow publishes the rules to `dns-core`.
+
+
+## Shared Foundation
+
+DNS Data Entry consumes the shared DNS Foundation from `@dolomitinordicski/dns-shared-data`.
+
+Current rollout:
+- DNS Design System v1.10 navigation pattern, including translucent sticky navigation and scroll progress;
+- immediate local Design System fallback for stable first paint, with DNS_Core as runtime enhancement;
+- shared Data Contracts catalog with module-to-contract mappings;
+- canonical regional assets and shared operational context styling.
+
+The application exposes the active shared Data Contract IDs on the authorized shell for diagnostics and migration checks.
