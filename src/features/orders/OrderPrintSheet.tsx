@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import { DNS_SHARED_BRAND } from '../../config/brand';
 import type {
   OrderMatrixCategory,
@@ -86,7 +87,7 @@ export function OrderPrintSheet({
     language === 'de' ? 'de-DE' : 'it-IT',
   );
 
-  return (
+  return createPortal(
     <section className="dns-print-sheet" aria-hidden="true">
       <header className="dns-print-document-header">
         <img
@@ -177,6 +178,7 @@ export function OrderPrintSheet({
           </tr>
         </tfoot>
       </table>
-    </section>
+    </section>,
+    document.body,
   );
 }
