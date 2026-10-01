@@ -190,36 +190,37 @@ function orgAreaIds(org: CanonicalRecord) {
     : [];
 }
 
-function getVisibleOrganizationIds(
+function getOrganizationIdsByPermission(
   developmentMode: boolean,
   access: DNSAccessContext | null,
   organizations: CanonicalRecord[],
+  permission: 'ticketOrders.read' | 'ticketOrders.write',
 ) {
   const all = new Set(organizations.map((organization) => organization.id));
 
   if (developmentMode || access?.isAdmin) return all;
   if (!access?.profile?.active) return new Set<string>();
 
-  const visible = new Set<string>();
+  const scoped = new Set<string>();
 
   for (const grant of access.grants) {
-    if (!grant.active || !grant.permissions.includes('ticketOrders.read')) continue;
+    if (!grant.active || !grant.permissions.includes(permission)) continue;
 
     if (grant.scopeType === 'network') return all;
 
     if (grant.scopeType === 'organization') {
-      visible.add(grant.scopeId);
+      scoped.add(grant.scopeId);
       continue;
     }
 
     if (grant.scopeType === 'reportingArea') {
       organizations
         .filter((organization) => orgAreaIds(organization).includes(grant.scopeId))
-        .forEach((organization) => visible.add(organization.id));
+        .forEach((organization) => scoped.add(organization.id));
     }
   }
 
-  return visible;
+  return scoped;
 }
 
 export function TicketOrdersTable({
@@ -250,7 +251,22 @@ export function TicketOrdersTable({
   const [sharing, setSharing] = useState(false);
 
   const visibleOrganizationIds = useMemo(
-    () => getVisibleOrganizationIds(developmentMode, access, organizations),
+    () => getOrganizationIdsByPermission(
+      developmentMode,
+      access,
+      organizations,
+      'ticketOrders.read',
+    ),
+    [developmentMode, access, organizations],
+  );
+
+  const writableOrganizationIds = useMemo(
+    () => getOrganizationIdsByPermission(
+      developmentMode,
+      access,
+      organizations,
+      'ticketOrders.write',
+    ),
     [developmentMode, access, organizations],
   );
 
@@ -459,8 +475,21 @@ export function TicketOrdersTable({
     setSaving(true);
     setError(false);
     try {
+      const saveDraft =
+        !isAdmin && !developmentMode
+          ? {
+              ...current.draft,
+              organizations: current.draft.organizations.filter((organization) =>
+                writableOrganizationIds.has(organization.organizationId),
+              ),
+              cells: current.draft.cells.filter((cell) =>
+                writableOrganizationIds.has(cell.organizationId),
+              ),
+            }
+          : current.draft;
+
       await savePersistedOrderMatrix({
-        draft: current.draft,
+        draft: saveDraft,
         persistedOrderIds: current.persistedOrderIds,
         persistedLineIds: current.persistedLineIds,
         ...(headerStatus ? { headerStatus } : {}),
@@ -522,7 +551,8 @@ export function TicketOrdersTable({
         quantities={quantities}
         rowTotals={rowTotals}
         statuses={current?.orderStatuses ?? {}}
-        canWrite={canWrite}
+        canWrite={canWrite && writableOrganizationIds.size > 0}
+        writableOrganizationIds={writableOrganizationIds}
         dirty={dirty[category]}
         saving={saving}
         onCategoryChange={setCategory}
