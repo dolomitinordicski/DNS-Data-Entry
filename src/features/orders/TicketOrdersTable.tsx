@@ -2,6 +2,7 @@ import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useMemo, useState } from 'react';
 import {
   cloneOrderDraft,
+  pocketfolderOrderDraft2026,
   ticketOrderDraft2026,
   wristbandOrderDraft2026,
 } from '../../config/orders2026';
@@ -39,12 +40,25 @@ interface Props {
 
 const copy = {
   de: {
-    title: 'Ticket-Bestellungen',
+    title: 'Bestellungen',
     intro:
       'Saisonale Bestellmatrix nach dem bisherigen DNS-Workflow: Organisationen in den Zeilen, bestellbare Artikel in den Spalten.',
     wristbands: 'Armbänder',
     tickets: 'Wochen- & Saisonkarten',
+    pocketfolders: 'Pocketfolder',
     source: 'Quelle: ALL TICKETS 2026-27.xlsx',
+    pocketfolderSource: 'Quelle: FOLDER BROCHURE WS 2026-27 mit Lieferadressen für Dialog.xlsx',
+    comparison: 'Vergleich 2025/26',
+    areaTotal: 'AREA gesamt',
+    printerTotal: 'Druckerei gesamt',
+    currentTotal: 'Aktuell',
+    sourceCheck: 'Quellencheck',
+    sourceMatch: 'stimmt',
+    sourceDiff: 'Abweichung',
+    orderVsInvoice: 'Bestellung ≠ Faktura',
+    backLanguage: 'Rückseite',
+    delivery: 'Lieferadresse',
+    needsConfirmation: 'Adresse bestätigen',
     localDraft: 'DEV MODE · lokaler Browser-Entwurf',
     live: 'DNS_Core · Firestore live',
     readOnly: 'Nur Lesen',
@@ -73,12 +87,25 @@ const copy = {
     shareDirty: 'Zuerst die Änderungen in Firestore speichern.',
   },
   it: {
-    title: 'Ordini biglietti',
+    title: 'Ordini',
     intro:
       'Matrice ordini stagionale secondo il precedente workflow DNS: organizzazioni sulle righe, articoli ordinabili sulle colonne.',
     wristbands: 'Braccialetti',
     tickets: 'Settimanali & stagionali',
+    pocketfolders: 'Pocketfolder',
     source: 'Fonte: ALL TICKETS 2026-27.xlsx',
+    pocketfolderSource: 'Fonte: FOLDER BROCHURE WS 2026-27 mit Lieferadressen für Dialog.xlsx',
+    comparison: 'Confronto 2025/26',
+    areaTotal: 'Totale AREA',
+    printerTotal: 'Totale tipografia',
+    currentTotal: 'Attuale',
+    sourceCheck: 'Check fonte',
+    sourceMatch: 'coincide',
+    sourceDiff: 'scostamento',
+    orderVsInvoice: 'Ordine ≠ Faktura',
+    backLanguage: 'Retro',
+    delivery: 'Indirizzo consegna',
+    needsConfirmation: 'Indirizzo da confermare',
     localDraft: 'DEV MODE · bozza locale nel browser',
     live: 'DNS_Core · Firestore live',
     readOnly: 'Sola lettura',
@@ -111,6 +138,7 @@ const copy = {
 const SOURCE_TOTALS: Record<OrderMatrixCategory, number> = {
   wristband: 55700,
   ticket: 24415,
+  pocketfolder: 25150,
 };
 
 function storageKey(category: OrderMatrixCategory) {
@@ -119,7 +147,11 @@ function storageKey(category: OrderMatrixCategory) {
 
 function loadDevDraft(category: OrderMatrixCategory): OrderMatrixDraft {
   const source =
-    category === 'wristband' ? wristbandOrderDraft2026 : ticketOrderDraft2026;
+    category === 'wristband'
+      ? wristbandOrderDraft2026
+      : category === 'pocketfolder'
+        ? pocketfolderOrderDraft2026
+        : ticketOrderDraft2026;
 
   try {
     const stored = sessionStorage.getItem(storageKey(category));
@@ -198,6 +230,7 @@ export function TicketOrdersTable({
   const [dirty, setDirty] = useState<Record<OrderMatrixCategory, boolean>>({
     wristband: false,
     ticket: false,
+    pocketfolder: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -230,12 +263,13 @@ export function TicketOrdersTable({
         setMatrices({
           wristband: devMatrix('wristband'),
           ticket: devMatrix('ticket'),
+          pocketfolder: devMatrix('pocketfolder'),
         });
-        setDirty({ wristband: false, ticket: false });
+        setDirty({ wristband: false, ticket: false, pocketfolder: false });
         return;
       }
 
-      const [wristband, ticket] = await Promise.all([
+      const [wristband, ticket, pocketfolder] = await Promise.all([
         loadPersistedOrderMatrix({
           seasonId,
           category: 'wristband',
@@ -248,10 +282,16 @@ export function TicketOrdersTable({
           visibleOrganizationIds,
           organizationAreaById,
         }),
+        loadPersistedOrderMatrix({
+          seasonId,
+          category: 'pocketfolder',
+          visibleOrganizationIds,
+          organizationAreaById,
+        }),
       ]);
 
-      setMatrices({ wristband, ticket });
-      setDirty({ wristband: false, ticket: false });
+      setMatrices({ wristband, ticket, pocketfolder });
+      setDirty({ wristband: false, ticket: false, pocketfolder: false });
     } catch (reason) {
       console.error('Order matrix load failed', reason);
       setError(true);
@@ -421,7 +461,11 @@ export function TicketOrdersTable({
   function resetDevToSource() {
     if (!developmentMode || !canWrite) return;
     const source =
-      category === 'wristband' ? wristbandOrderDraft2026 : ticketOrderDraft2026;
+      category === 'wristband'
+        ? wristbandOrderDraft2026
+        : category === 'pocketfolder'
+          ? pocketfolderOrderDraft2026
+          : ticketOrderDraft2026;
     const next = cloneOrderDraft(source);
     setMatrices((state) => ({
       ...state,
@@ -520,7 +564,7 @@ export function TicketOrdersTable({
                 <WireIcon name="print" size={14} />
                 {t.print}
               </button>
-              <span className="dns-pill">{t.orderedVsSold}</span>
+              <span className="dns-pill">{category === 'pocketfolder' ? t.orderVsInvoice : t.orderedVsSold}</span>
               <span className="dns-pill">
                 {developmentMode ? t.localDraft : t.live}
               </span>
@@ -534,6 +578,7 @@ export function TicketOrdersTable({
             {([
               ['wristband', t.wristbands],
               ['ticket', t.tickets],
+              ['pocketfolder', t.pocketfolders],
             ] as const).map(([id, label]) => (
               <button
                 key={id}
@@ -553,6 +598,47 @@ export function TicketOrdersTable({
           </div>
         </div>
       </section>
+
+      {category === 'pocketfolder' && (
+        <section className="dns-card p-5 md:p-6">
+          <div className="dns-section-title">Pocketfolder · WS {seasonId}</div>
+          <p className="mt-2 max-w-5xl font-alt text-[10px] leading-relaxed text-dns-muted">
+            {t.pocketfolderSource}. {language === 'de'
+              ? 'Die Spalten sind die acht Gebietsausgaben; die Zeilen sind die tatsächlichen Lieferempfänger. DNS-Büro-Kopien sind als eigene Lieferzeile enthalten.'
+              : 'Le colonne sono le otto edizioni di area; le righe sono i destinatari fisici. Le copie per l’ufficio DNS sono incluse come destinazione separata.'}
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {draft.items.map((item) => {
+              const meta = item.pocketfolder;
+              if (!meta) return null;
+              const currentPrinter = columnTotals.get(item.id) ?? 0;
+              const currentArea = draft.organizations
+                .filter((organization) => meta.areaTotalOrganizationIds.includes(organization.organizationId))
+                .reduce((sum, organization) =>
+                  sum + (quantities.get(`${organization.organizationId}::${item.id}`) ?? 0), 0);
+              return (
+                <div key={item.id} className="rounded-lg border border-dns-mid/15 bg-white p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-[12px] font-bold text-dns-deep">{item.label[language]}</div>
+                      <div className="mt-1 font-alt text-[9px] uppercase tracking-[.05em] text-dns-muted">
+                        {t.backLanguage}: {meta.backLanguageOrder}
+                      </div>
+                    </div>
+                    <RegionLogos entityType="reportingArea" entityId={meta.reportingAreaId} />
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-[10px]">
+                    <div><span className="text-dns-muted">{t.comparison}</span><div className="font-bold">{formatNumber(meta.sourceComparison2025, language)}</div></div>
+                    <div><span className="text-dns-muted">{t.areaTotal}</span><div className="font-bold">{formatNumber(currentArea, language)} <span className="font-normal text-dns-muted">/ {formatNumber(meta.sourceAreaTotal2026, language)}</span></div></div>
+                    <div><span className="text-dns-muted">{t.printerTotal}</span><div className="font-bold">{formatNumber(currentPrinter, language)} <span className="font-normal text-dns-muted">/ {formatNumber(meta.sourcePrinterTotal2026, language)}</span></div></div>
+                    <div><span className="text-dns-muted">{t.sourceCheck}</span><div className="font-bold">{currentArea === meta.sourceAreaTotal2026 && currentPrinter === meta.sourcePrinterTotal2026 ? `✓ ${t.sourceMatch}` : `△ ${t.sourceDiff}`}</div></div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {category === 'wristband' && (
         <section className="dns-card p-5 md:p-6">
@@ -599,7 +685,7 @@ export function TicketOrdersTable({
           </div>
         </div>
         <div className="dns-card p-4 md:p-5">
-          <div className="dns-kicker">{t.source}</div>
+          <div className="dns-kicker">{category === 'pocketfolder' ? t.pocketfolderSource : t.source}</div>
           <div className="mt-2 font-alt text-[11px] leading-relaxed text-dns-muted">
             {developmentMode
               ? t.localDraft
@@ -675,6 +761,11 @@ export function TicketOrdersTable({
                     <span className="block whitespace-normal leading-tight">
                       {item.label[language]}
                     </span>
+                    {category === 'pocketfolder' && item.pocketfolder && (
+                      <span className="mt-1 block font-alt text-[8px] normal-case tracking-normal text-dns-muted">
+                        {item.pocketfolder.backLanguageOrder}
+                      </span>
+                    )}
                   </th>
                 ))}
                 <th className="min-w-[110px] px-4 py-3 text-right">{t.total}</th>
@@ -696,6 +787,15 @@ export function TicketOrdersTable({
                     ].join(' ')}
                   >
                     <div className="dns-entity-label"><RegionLogos entityType="organization" entityId={organization.organizationId} /><span>{organization.sourceLabel}</span></div>
+                    {category === 'pocketfolder' && organization.deliveryLocation && (
+                      <div className="mt-1 max-w-[260px] font-alt text-[9px] font-normal leading-snug text-dns-muted">
+                        <span className="font-semibold">{t.delivery}:</span>{' '}
+                        {[organization.deliveryLocation.recipientName, organization.deliveryLocation.addressLine1, organization.deliveryLocation.postalLocality].filter(Boolean).join(' · ')}
+                        {organization.deliveryLocation.status === 'needs-confirmation' && (
+                          <span className="ml-1 font-bold text-amber-700">· {t.needsConfirmation}</span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   {draft.items.map((item) => {
                     const key = `${organization.organizationId}::${item.id}`;

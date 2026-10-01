@@ -28,8 +28,8 @@ export const modules: ModuleDefinition[] = [
   },
   {
     id: 'orders',
-    label: { de: 'Ticket-Bestellungen', it: 'Ordini biglietti' },
-    subtitle: { de: 'Bestellungen & Billing Prep', it: 'Ordini e preparazione billing' },
+    label: { de: 'Bestellungen', it: 'Ordini' },
+    subtitle: { de: 'Tickets, Armbänder, Pocketfolder & Billing Prep', it: 'Biglietti, braccialetti, Pocketfolder e preparazione billing' },
     phase: { de: 'Geplant', it: 'Pianificato' },
   },
   {

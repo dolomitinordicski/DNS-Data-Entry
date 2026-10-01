@@ -20,6 +20,8 @@ const copy = {
     generatedAt: 'Stand',
     legend: 'Farb-Legende',
     supplierRef: 'Lieferantenreferenz',
+    delivery: 'Lieferadresse',
+    addressWarning: 'Adresse vor Versand bestätigen',
   },
   it: {
     supplierView: 'Vista fornitore',
@@ -31,6 +33,8 @@ const copy = {
     generatedAt: 'Aggiornato',
     legend: 'Legenda colori',
     supplierRef: 'Riferimento fornitore',
+    delivery: 'Indirizzo consegna',
+    addressWarning: 'Confermare indirizzo prima della spedizione',
   },
 } as const;
 
@@ -250,6 +254,11 @@ export function PublicOrderSharePage({
                         />
                       )}
                       {language === 'de' ? item.label.de : item.label.it}
+                      {snapshot.category === 'pocketfolder' && item.pocketfolder && (
+                        <span className="mt-1 block font-alt text-[8px] normal-case tracking-normal text-dns-muted">
+                          {item.pocketfolder.backLanguageOrder}
+                        </span>
+                      )}
                     </th>
                   ))}
                   <th className="px-4 py-3 text-right">{t.total}</th>
@@ -263,6 +272,15 @@ export function PublicOrderSharePage({
                   >
                     <td className="px-4 py-2.5 text-[11px] font-semibold">
                       <div className="dns-entity-label"><RegionLogos entityType="organization" entityId={organization.organizationId} /><span>{organization.sourceLabel}</span></div>
+                      {snapshot.category === 'pocketfolder' && organization.deliveryLocation && (
+                        <div className="mt-1 max-w-[280px] font-alt text-[9px] font-normal leading-snug text-dns-muted">
+                          <span className="font-semibold">{t.delivery}:</span>{' '}
+                          {[organization.deliveryLocation.recipientName, organization.deliveryLocation.addressLine1, organization.deliveryLocation.postalLocality, organization.deliveryLocation.phone].filter(Boolean).join(' · ')}
+                          {organization.deliveryLocation.status === 'needs-confirmation' && (
+                            <span className="ml-1 font-bold text-amber-700">· {t.addressWarning}</span>
+                          )}
+                        </div>
+                      )}
                     </td>
                     {snapshot.items.map((item) => {
                       const value =
