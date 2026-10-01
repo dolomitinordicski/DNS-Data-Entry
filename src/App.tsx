@@ -1,3 +1,5 @@
+import { SalesEntry } from './features/sales/SalesEntry';
+import type { SalesDraftRow } from './types/sales';
 import { ActiveArea } from './components/ActiveArea';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
@@ -107,6 +109,7 @@ function App() {
   const [activeModule, setActiveModule] = useState<ModuleId>('season');
   const [master, setMaster] = useState<DNSCoreMaster | null>(null);
   const [connection, setConnection] = useState<ConnectionState>('loading');
+  const [salesRows, setSalesRows] = useState<SalesDraftRow[]>([]);
   const [pricingRows, setPricingRows] = useState<PricingDraftRow[]>([]);
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -124,6 +127,7 @@ function App() {
   useEffect(() => {
     return subscribeToAuth((user) => {
       setAuthReady(false);
+      setSalesRows([]);
       setAuthUser(user);
       setAccess(null);
 
@@ -264,6 +268,7 @@ function App() {
   const canManagePricing = effectivePermissions.has('pricing.manage');
 
   function leaveSession() {
+    setSalesRows([]);
     if (developmentMode) {
       sessionStorage.removeItem('dns-development-mode');
       setDevelopmentMode(false);
@@ -432,13 +437,20 @@ function App() {
             />
           )}
 
-          {(activeModule === 'sales' || activeModule === 'kp') && master && (
+          {activeModule === 'kp' && master && (
             <ActiveArea key={activeModule} master={master} access={access}
               developmentMode={developmentMode} language={language}
-              permission={activeModule === 'sales' ? 'ticketSales.read' : 'kp.read'} />
+              permission='kp.read' />
           )}
 
-          {!['season', 'pricing', 'orders'].includes(activeModule) && (
+          {activeModule === 'sales' && master && activeSeason && (
+            <SalesEntry master={master} access={access} developmentMode={developmentMode}
+              canWrite={effectivePermissions.has('ticketSales.write')} language={language}
+              seasonId={String(activeSeason.id)} pricingRows={pricingRows}
+              rows={salesRows} onChange={setSalesRows} />
+          )}
+
+          {!['season', 'pricing', 'orders', 'sales'].includes(activeModule) && (
             <>
               <section className="dns-card p-6">
                 <div className="dns-section-title">{active.label[language]}</div>
