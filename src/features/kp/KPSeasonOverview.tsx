@@ -184,8 +184,8 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
           <h2 className="dns-section-title">KP · Kunstschneeproduktion · WS 2025–26</h2>
           <p className="mt-2 max-w-4xl text-sm text-dns-muted">
             {it
-              ? 'KP esprime il rapporto tra chilometri con neve naturale (NS) e chilometri con neve artificiale (KS) allo stesso momento di rilevazione, mostrato come quota NS / quota KS sul totale NS+KS. Il quadro regionale curato è affiancato ai record partner originali e immutabili.'
-              : 'KP beschreibt das Verhältnis zwischen Kilometern mit Naturschnee (NS) und Kilometern mit Kunstschnee (KS) zum selben Stichtag, dargestellt als NS-Anteil / KS-Anteil an NS+KS. Die kuratierte Regionssicht steht neben den unveränderlichen Original-Partnerdaten.'}
+              ? 'Conserviamo due livelli: Snow Mix mostra la composizione NS/KS dei km aperti; KP FAIR è la quota KS sui km aperti ed è il valore destinabile a FAIR dopo validazione. Il quadro regionale curato è affiancato ai record partner originali e immutabili.'
+              : 'Wir behalten zwei Ebenen: Snow Mix zeigt die NS/KS-Zusammensetzung der geöffneten Kilometer; KP FAIR ist der KS-Anteil an den geöffneten Kilometern und kann nach Validierung als FAIR-Eingabewert dienen. Die kuratierte Regionssicht steht neben den unveränderlichen Original-Partnerdaten.'}
           </p>
         </div>
         <span className="dns-pill">{it ? 'Storico verificabile' : 'Prüfbare Historie'}</span>
