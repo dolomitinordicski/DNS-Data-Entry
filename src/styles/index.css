@@ -39,7 +39,6 @@
   --dns-scroll-progress-height: 3px;
   --dns-scroll-progress-color: #AAD0D1;
   --dns-scroll-progress-track: transparent;
-  --dns-header-height: 68px;
 }
 
 @layer base {
@@ -99,45 +98,6 @@
     @apply inline-flex items-center gap-2 rounded-full border border-dns-mid/20 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.05em] text-dns-mid;
   }
 
-  .dns-tab-nav {
-    position: sticky;
-    top: var(--dns-header-height);
-    z-index: 25;
-    background: var(--dns-nav-surface-bg);
-    backdrop-filter: blur(var(--dns-nav-backdrop-blur));
-    -webkit-backdrop-filter: blur(var(--dns-nav-backdrop-blur));
-    overflow-x: auto;
-    overflow-y: hidden;
-    scrollbar-width: thin;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .dns-scroll-progress-track {
-    position: relative;
-    width: 100%;
-    height: var(--dns-scroll-progress-height);
-    overflow: hidden;
-    background: var(--dns-scroll-progress-track);
-  }
-
-  .dns-scroll-progress-bar {
-    display: block;
-    width: 100%;
-    height: 100%;
-    background: var(--dns-scroll-progress-color);
-    transform: scaleX(0);
-    transform-origin: left center;
-    will-change: transform;
-  }
-
-  .dns-tab-nav-inner {
-    display: flex;
-    align-items: center;
-    min-width: max-content;
-    max-width: 1440px;
-    margin: 0 auto;
-    padding: 0 1.25rem;
-  }
 
   .dns-tab-season-wrap {
     flex: 0 0 auto;
@@ -298,85 +258,6 @@
 
   @media (prefers-reduced-motion: reduce) {
     .dns-season-menu, .dns-tab-season, .dns-season-chevron, .dns-season-option { animation: none; transition: none; }
-  }
-
-  .dns-tab {
-    flex: 0 0 auto;
-    border: 0;
-    border-bottom: var(--dns-tab-indicator-width) solid transparent;
-    border-radius: 0;
-    background: transparent;
-    padding: .65rem 1.2rem .62rem;
-    cursor: pointer;
-    color: var(--dns-tab-text);
-    font-size: var(--dns-tab-size);
-    font-weight: 600;
-    letter-spacing: var(--dns-tab-tracking);
-    text-transform: uppercase;
-    white-space: nowrap;
-    transition: color var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease), border-color var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease);
-    scroll-snap-align: start;
-  }
-
-  .dns-tab:hover {
-    color: var(--dns-tab-hover);
-  }
-
-  .dns-tab-active {
-    color: var(--dns-tab-active);
-    border-bottom-color: var(--dns-tab-indicator);
-  }
-}
-
-@media (min-width: 1024px) {
-  .dns-tab-nav {
-    overflow: visible;
-  }
-
-  .dns-tab-nav-inner {
-    min-width: 0;
-    flex-wrap: wrap;
-    padding-top: .18rem;
-    padding-bottom: .18rem;
-  }
-
-  .dns-tab {
-    padding-left: .95rem;
-    padding-right: .95rem;
-  }
-}
-
-@media (max-width: 1023px) {
-  .dns-tab-nav {
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-
-  .dns-tab-nav-inner {
-    min-width: max-content;
-    flex-wrap: nowrap;
-    padding: 0 1rem;
-  }
-
-  .dns-tab {
-    padding-left: .95rem;
-    padding-right: .95rem;
-  }
-}
-
-@media (max-width: 767px) {
-  .dns-tab-nav {
-    top: 62px;
-    scroll-snap-type: x proximity;
-  }
-
-  .dns-tab-nav-inner {
-    padding: 0 .9rem;
-  }
-
-  .dns-tab {
-    padding: .55rem .8rem .52rem;
-    font-size: 10px;
   }
 
 }
