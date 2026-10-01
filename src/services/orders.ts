@@ -16,6 +16,7 @@ import type {
   OrderMatrixCategory,
   OrderMatrixDraft,
   OrderMatrixItem,
+  OrderMatrixOrganization,
   PersistedOrderMatrix,
 } from '../types/orderMatrix';
 
@@ -95,10 +96,10 @@ export async function loadPersistedOrderMatrix({
     visibleOrganizationIds.has(id),
   );
 
-  const deliveryById = new Map(
+  const deliveryById = new Map<string, NonNullable<OrderMatrixOrganization['deliveryLocation']>>(
     deliverySnapshot?.docs.map((item) => [
       item.id,
-      { id: item.id, ...item.data() },
+      { id: item.id, ...item.data() } as NonNullable<OrderMatrixOrganization['deliveryLocation']>,
     ]) ?? [],
   );
 
