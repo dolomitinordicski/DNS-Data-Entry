@@ -5,6 +5,7 @@ import {
   getDoc,
   getDocs,
   query,
+  serverTimestamp,
   where,
   writeBatch,
 } from 'firebase/firestore';
@@ -19,6 +20,7 @@ import type {
   OrderMatrixDraft,
   OrderMatrixItem,
   OrderMatrixOrganization,
+  OrderStatus,
   PersistedOrderMatrix,
   PocketfolderSourceRow,
 } from '../types/orderMatrix';
@@ -124,12 +126,22 @@ export async function loadPersistedOrderMatrix({
 
   const persistedOrderIds = new Set<string>();
   const persistedLineIds = new Set<string>();
+  const orderStatuses: Record<string, OrderStatus> = {};
 
   await Promise.all(
     organizations.map(async (organization) => {
       const id = orderId(seasonId, category, organization.organizationId);
       const snapshot = await getDoc(doc(db, 'ticketOrders', id));
-      if (snapshot.exists()) persistedOrderIds.add(id);
+      if (snapshot.exists()) {
+        persistedOrderIds.add(id);
+        const status = snapshot.data().status;
+        orderStatuses[organization.organizationId] =
+          status === 'submitted' || status === 'confirmed' || status === 'fulfilled' || status === 'cancelled'
+            ? status
+            : 'draft';
+      } else {
+        orderStatuses[organization.organizationId] = 'draft';
+      }
     }),
   );
 
@@ -171,6 +183,7 @@ export async function loadPersistedOrderMatrix({
     },
     persistedOrderIds,
     persistedLineIds,
+    orderStatuses,
   };
 }
 
@@ -193,10 +206,12 @@ export async function savePersistedOrderMatrix({
   draft,
   persistedOrderIds,
   persistedLineIds,
+  headerStatus,
 }: {
   draft: OrderMatrixDraft;
   persistedOrderIds: Set<string>;
   persistedLineIds: Set<string>;
+  headerStatus?: OrderStatus;
 }) {
   const batch = writeBatch(db);
   let writeCount = 0;
@@ -214,7 +229,7 @@ export async function savePersistedOrderMatrix({
         seasonId: draft.seasonId,
         category: draft.category,
         organizationId: organization.organizationId,
-        status: 'draft',
+        status: headerStatus ?? 'draft',
         provenance: {
           sourceSystem: 'manual-data-entry',
           methodVersion: 1,
@@ -225,7 +240,19 @@ export async function savePersistedOrderMatrix({
         header.reportingAreaId = organization.reportingAreaId;
       }
 
+      if (headerStatus === 'submitted') {
+        header.submittedAt = serverTimestamp();
+      }
+      header.updatedAt = serverTimestamp();
+
       batch.set(doc(db, 'ticketOrders', headerId), header);
+      writeCount += 1;
+    } else if (headerStatus) {
+      batch.update(doc(db, 'ticketOrders', headerId), {
+        status: headerStatus,
+        updatedAt: serverTimestamp(),
+        ...(headerStatus === 'submitted' ? { submittedAt: serverTimestamp() } : {}),
+      });
       writeCount += 1;
     }
 
