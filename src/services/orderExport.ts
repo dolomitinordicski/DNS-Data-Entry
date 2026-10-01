@@ -13,6 +13,10 @@ function categoryLabel(category: PublicOrderShareDocument['category']) {
   return 'Tickets';
 }
 
+function exportTimestamp() {
+  return new Date().toISOString();
+}
+
 function fileBase(share: PublicOrderShareDocument) {
   return [
     'DNS',
@@ -65,8 +69,10 @@ export function exportPublicOrderCsv(
   language: Language,
 ) {
   const q = quantities(share);
+  const exportedAt = exportTimestamp();
   const rows: unknown[][] = [[
     'Snapshot timestamp',
+    'Export timestamp',
     'Season',
     'Category',
     'Organization',
@@ -79,14 +85,16 @@ export function exportPublicOrderCsv(
     'Item code',
     'Back language',
     'Quantity',
-    'Organization total',
   ]];
 
   for (const organization of share.snapshot.organizations) {
-    const total = rowTotal(share, organization.organizationId, q);
     for (const item of share.snapshot.items) {
+      const quantity = q.get(`${organization.organizationId}::${item.id}`);
+      if (quantity === null || quantity === undefined || quantity <= 0) continue;
+
       rows.push([
         share.snapshot.generatedAt,
+        exportedAt,
         share.snapshot.seasonId,
         share.snapshot.category,
         organization.sourceLabel,
@@ -98,8 +106,7 @@ export function exportPublicOrderCsv(
         language === 'de' ? item.label.de : item.label.it,
         item.code,
         item.pocketfolder?.backLanguageOrder ?? '',
-        q.get(`${organization.organizationId}::${item.id}`) ?? '',
-        total,
+        quantity,
       ]);
     }
   }
@@ -120,6 +127,7 @@ export function exportPublicOrderExcel(
   language: Language,
 ) {
   const q = quantities(share);
+  const exportedAt = exportTimestamp();
   const workbook = XLSX.utils.book_new();
 
   const itemHeaders = share.snapshot.items.map((item) =>
@@ -186,9 +194,58 @@ export function exportPublicOrderExcel(
   ];
   XLSX.utils.book_append_sheet(workbook, orderSheet, 'Order');
 
+  if (share.snapshot.category === 'pocketfolder') {
+    const distributionRows: unknown[][] = [[
+      'Snapshot timestamp',
+      'Export timestamp',
+      'Organization',
+      'Delivery recipient',
+      'Address',
+      'Locality',
+      'Phone',
+      'Delivery status',
+      'Edition',
+      'Edition code',
+      'Back language',
+      'Quantity',
+    ]];
+
+    for (const organization of share.snapshot.organizations) {
+      for (const item of share.snapshot.items) {
+        const quantity = q.get(`${organization.organizationId}::${item.id}`);
+        if (quantity === null || quantity === undefined || quantity <= 0) continue;
+
+        distributionRows.push([
+          share.snapshot.generatedAt,
+          exportedAt,
+          organization.sourceLabel,
+          organization.deliveryLocation?.recipientName ?? '',
+          organization.deliveryLocation?.addressLine1 ?? '',
+          organization.deliveryLocation?.postalLocality ?? '',
+          organization.deliveryLocation?.phone ?? '',
+          organization.deliveryLocation?.status ?? '',
+          language === 'de' ? item.label.de : item.label.it,
+          item.code,
+          item.pocketfolder?.backLanguageOrder ?? '',
+          quantity,
+        ]);
+      }
+    }
+
+    const distributionSheet = XLSX.utils.aoa_to_sheet(distributionRows);
+    distributionSheet['!freeze'] = { ySplit: 1 };
+    distributionSheet['!cols'] = [
+      { wch: 24 }, { wch: 24 }, { wch: 30 }, { wch: 32 }, { wch: 34 },
+      { wch: 24 }, { wch: 22 }, { wch: 18 }, { wch: 30 }, { wch: 22 },
+      { wch: 18 }, { wch: 12 },
+    ];
+    XLSX.utils.book_append_sheet(workbook, distributionSheet, 'Distribution');
+  }
+
   const metaSheet = XLSX.utils.aoa_to_sheet([
     ['DNS Supplier Order Snapshot'],
     ['Snapshot timestamp', share.snapshot.generatedAt],
+    ['Export timestamp', exportedAt],
     ['Share ID', share.id],
     ['Season', share.snapshot.seasonId],
     ['Category', share.snapshot.category],
