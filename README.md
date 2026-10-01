@@ -27,3 +27,8 @@ The application exposes the active shared Data Contract IDs on the authorized sh
 ### Accessibility v1
 
 DNS Data Entry mounts the shared Foundation accessibility runtime from `@dolomitinordicski/dns-shared-data/ui/accessibility` in the authenticated application header. Preferences use the common `dns-accessibility-v1` local browser key and are not written to Firebase.
+
+
+### Canonical navigation runtime
+
+DNS Data Entry uses `@dolomitinordicski/dns-shared-data/ui/navigation` for sticky metrics, scroll progress and responsive navigation geometry. The application only owns module selection and labels; structural navigation behavior must remain Foundation-owned.
