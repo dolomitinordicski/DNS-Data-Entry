@@ -1,4 +1,5 @@
 import { HistoricalSeason } from './features/season/HistoricalSeason';
+import { KPSeasonOverview } from './features/kp/KPSeasonOverview';
 import { loadPricing, savePricing, persistenceMessage } from './services/seasonalPersistence';
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
@@ -511,8 +512,13 @@ function App() {
             </div>
           )}
 
-          {!historicalSeason && activeModule === 'kp' && master && (
-            <div key="kp" data-dns-reveal>
+          {!historicalSeason && activeModule === 'kp' && master && activeSeason && (
+            <div key="kp" data-dns-reveal className="space-y-5">
+              <KPSeasonOverview
+                seasonId={String(activeSeason.id)}
+                language={language}
+                reportingAreas={master.reportingAreas}
+              />
               <ActiveArea master={master} access={access}
                 developmentMode={developmentMode} language={language}
                 permission='kp.read' />
@@ -528,7 +534,7 @@ function App() {
             </div>
           )}
 
-          {!historicalSeason && !['season', 'pricing', 'orders', 'sales'].includes(activeModule) && (
+          {!historicalSeason && !['season', 'pricing', 'orders', 'sales', 'kp'].includes(activeModule) && (
             <div key={activeModule} data-dns-reveal className="space-y-5">
               <section className="dns-card p-6">
                 <div className="dns-section-title">{active.label[language]}</div>
