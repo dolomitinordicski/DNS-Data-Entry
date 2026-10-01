@@ -1,5 +1,6 @@
 import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useMemo, useState } from 'react';
+import { DEV_AREA_TEST_DELIVERY_LOCATIONS } from '../../config/devAccess';
 import {
   cloneOrderDraft,
   pocketfolderOrderDraft2026,
@@ -40,6 +41,7 @@ interface Props {
   access: DNSAccessContext | null;
   organizations: CanonicalRecord[];
   isAdmin: boolean;
+  devAreaTest?: boolean;
 }
 
 const copy = {
@@ -149,34 +151,104 @@ const SOURCE_TOTALS: Record<OrderMatrixCategory, number> = {
   pocketfolder: 25150,
 };
 
-function storageKey(category: OrderMatrixCategory) {
-  return `dns-order-draft-2026-27-${category}`;
+function storageKey(category: OrderMatrixCategory, devAreaTest = false) {
+  return `dns-order-draft-2026-27-${devAreaTest ? 'area-test' : 'admin'}-${category}`;
 }
 
-function loadDevDraft(category: OrderMatrixCategory): OrderMatrixDraft {
-  const source =
-    category === 'wristband'
-      ? wristbandOrderDraft2026
-      : category === 'pocketfolder'
-        ? pocketfolderOrderDraft2026
-        : ticketOrderDraft2026;
+function statusStorageKey(category: OrderMatrixCategory) {
+  return `dns-order-status-2026-27-area-test-${category}`;
+}
+
+function devSource(category: OrderMatrixCategory) {
+  return category === 'wristband'
+    ? wristbandOrderDraft2026
+    : category === 'pocketfolder'
+      ? pocketfolderOrderDraft2026
+      : ticketOrderDraft2026;
+}
+
+function scopeDevDraft(
+  draft: OrderMatrixDraft,
+  visibleOrganizationIds: Set<string>,
+  devAreaTest: boolean,
+): OrderMatrixDraft {
+  if (!devAreaTest) return draft;
+
+  const organizations = draft.organizations
+    .filter((organization) => visibleOrganizationIds.has(organization.organizationId))
+    .map((organization) => ({
+      ...organization,
+      ...(draft.category === 'pocketfolder' &&
+      DEV_AREA_TEST_DELIVERY_LOCATIONS[organization.organizationId]
+        ? {
+            deliveryLocation:
+              DEV_AREA_TEST_DELIVERY_LOCATIONS[organization.organizationId],
+          }
+        : {}),
+    }));
+
+  const organizationIds = new Set(
+    organizations.map((organization) => organization.organizationId),
+  );
+
+  return {
+    ...draft,
+    organizations,
+    cells: draft.cells.filter((cell) => organizationIds.has(cell.organizationId)),
+  };
+}
+
+function loadDevDraft(
+  category: OrderMatrixCategory,
+  visibleOrganizationIds: Set<string>,
+  devAreaTest: boolean,
+): OrderMatrixDraft {
+  let draft = cloneOrderDraft(devSource(category));
 
   try {
-    const stored = sessionStorage.getItem(storageKey(category));
-    if (stored) return JSON.parse(stored) as OrderMatrixDraft;
+    const stored = sessionStorage.getItem(storageKey(category, devAreaTest));
+    if (stored) draft = JSON.parse(stored) as OrderMatrixDraft;
   } catch (error) {
     console.warn('Order draft session restore failed', error);
   }
 
-  return cloneOrderDraft(source);
+  return scopeDevDraft(draft, visibleOrganizationIds, devAreaTest);
 }
 
-function devMatrix(category: OrderMatrixCategory): PersistedOrderMatrix {
+function loadDevStatuses(
+  category: OrderMatrixCategory,
+  visibleOrganizationIds: Set<string>,
+  devAreaTest: boolean,
+) {
+  if (!devAreaTest) return {};
+
+  try {
+    const stored = sessionStorage.getItem(statusStorageKey(category));
+    if (stored) {
+      const parsed = JSON.parse(stored) as Record<string, 'draft' | 'submitted'>;
+      return Object.fromEntries(
+        Object.entries(parsed).filter(([organizationId]) =>
+          visibleOrganizationIds.has(organizationId),
+        ),
+      );
+    }
+  } catch (error) {
+    console.warn('Order status session restore failed', error);
+  }
+
+  return {};
+}
+
+function devMatrix(
+  category: OrderMatrixCategory,
+  visibleOrganizationIds: Set<string>,
+  devAreaTest: boolean,
+): PersistedOrderMatrix {
   return {
-    draft: loadDevDraft(category),
+    draft: loadDevDraft(category, visibleOrganizationIds, devAreaTest),
     persistedOrderIds: new Set<string>(),
     persistedLineIds: new Set<string>(),
-    orderStatuses: {},
+    orderStatuses: loadDevStatuses(category, visibleOrganizationIds, devAreaTest),
   };
 }
 
@@ -192,13 +264,14 @@ function orgAreaIds(org: CanonicalRecord) {
 
 function getOrganizationIdsByPermission(
   developmentMode: boolean,
+  devAreaTest: boolean,
   access: DNSAccessContext | null,
   organizations: CanonicalRecord[],
   permission: 'ticketOrders.read' | 'ticketOrders.write',
 ) {
   const all = new Set(organizations.map((organization) => organization.id));
 
-  if (developmentMode || access?.isAdmin) return all;
+  if ((developmentMode && !devAreaTest) || access?.isAdmin) return all;
   if (!access?.profile?.active) return new Set<string>();
 
   const scoped = new Set<string>();
@@ -231,6 +304,7 @@ export function TicketOrdersTable({
   access,
   organizations,
   isAdmin,
+  devAreaTest = false,
 }: Props) {
   const t = copy[language];
   const [category, setCategory] = useState<OrderMatrixCategory>('wristband');
@@ -253,21 +327,23 @@ export function TicketOrdersTable({
   const visibleOrganizationIds = useMemo(
     () => getOrganizationIdsByPermission(
       developmentMode,
+      devAreaTest,
       access,
       organizations,
       'ticketOrders.read',
     ),
-    [developmentMode, access, organizations],
+    [developmentMode, devAreaTest, access, organizations],
   );
 
   const writableOrganizationIds = useMemo(
     () => getOrganizationIdsByPermission(
       developmentMode,
+      devAreaTest,
       access,
       organizations,
       'ticketOrders.write',
     ),
-    [developmentMode, access, organizations],
+    [developmentMode, devAreaTest, access, organizations],
   );
 
   const organizationAreaById = useMemo(
@@ -288,9 +364,9 @@ export function TicketOrdersTable({
     try {
       if (developmentMode) {
         setMatrices({
-          wristband: devMatrix('wristband'),
-          ticket: devMatrix('ticket'),
-          pocketfolder: devMatrix('pocketfolder'),
+          wristband: devMatrix('wristband', visibleOrganizationIds, devAreaTest),
+          ticket: devMatrix('ticket', visibleOrganizationIds, devAreaTest),
+          pocketfolder: devMatrix('pocketfolder', visibleOrganizationIds, devAreaTest),
         });
         setDirty({ wristband: false, ticket: false, pocketfolder: false });
         setPocketfolderSourceRows([]);
@@ -332,7 +408,7 @@ export function TicketOrdersTable({
 
   useEffect(() => {
     void loadAll();
-  }, [seasonId, developmentMode, access]);
+  }, [seasonId, developmentMode, devAreaTest, access, visibleOrganizationIds]);
 
   const current = matrices[category];
   const draft = current?.draft;
@@ -447,7 +523,8 @@ export function TicketOrdersTable({
     quantity: number | null,
   ) {
     if (!canWrite || !current) return;
-    if (!isAdmin && !developmentMode) {
+    const scopedContributor = !isAdmin && (!developmentMode || devAreaTest);
+    if (scopedContributor) {
       const status = current.orderStatuses[organizationId] ?? 'draft';
       if (status !== 'draft' || !writableOrganizationIds.has(organizationId)) return;
     }
@@ -468,42 +545,69 @@ export function TicketOrdersTable({
     setDirty((state) => ({ ...state, [category]: true }));
 
     if (developmentMode) {
-      sessionStorage.setItem(storageKey(category), JSON.stringify(nextDraft));
+      sessionStorage.setItem(storageKey(category, devAreaTest), JSON.stringify(nextDraft));
     }
   }
 
   async function saveCurrent(headerStatus?: 'draft' | 'submitted') {
-    if (!current || !canWrite || developmentMode) return;
+    if (!current || !canWrite) return;
     if (!dirty[category] && !headerStatus) return;
+
+    const scopedContributor = !isAdmin && (!developmentMode || devAreaTest);
+    const editableOrganizationIds = scopedContributor
+      ? new Set(
+          [...writableOrganizationIds].filter(
+            (organizationId) =>
+              (current.orderStatuses[organizationId] ?? 'draft') === 'draft',
+          ),
+        )
+      : writableOrganizationIds;
+
+    const saveDraft = scopedContributor
+      ? {
+          ...current.draft,
+          organizations: current.draft.organizations.filter((organization) =>
+            editableOrganizationIds.has(organization.organizationId),
+          ),
+          cells: current.draft.cells.filter((cell) =>
+            editableOrganizationIds.has(cell.organizationId),
+          ),
+        }
+      : current.draft;
+
+    if (scopedContributor && saveDraft.organizations.length === 0) return;
+
+    if (developmentMode) {
+      if (!devAreaTest) return;
+
+      const nextStatuses = { ...current.orderStatuses };
+      for (const organization of saveDraft.organizations) {
+        nextStatuses[organization.organizationId] = headerStatus ?? 'draft';
+      }
+
+      sessionStorage.setItem(
+        storageKey(category, true),
+        JSON.stringify(current.draft),
+      );
+      sessionStorage.setItem(
+        statusStorageKey(category),
+        JSON.stringify(nextStatuses),
+      );
+
+      setMatrices((state) => ({
+        ...state,
+        [category]: {
+          ...current,
+          orderStatuses: nextStatuses,
+        },
+      }));
+      setDirty((state) => ({ ...state, [category]: false }));
+      return;
+    }
 
     setSaving(true);
     setError(false);
     try {
-      const editableOrganizationIds =
-        !isAdmin && !developmentMode
-          ? new Set(
-              [...writableOrganizationIds].filter(
-                (organizationId) =>
-                  (current.orderStatuses[organizationId] ?? 'draft') === 'draft',
-              ),
-            )
-          : writableOrganizationIds;
-
-      const saveDraft =
-        !isAdmin && !developmentMode
-          ? {
-              ...current.draft,
-              organizations: current.draft.organizations.filter((organization) =>
-                editableOrganizationIds.has(organization.organizationId),
-              ),
-              cells: current.draft.cells.filter((cell) =>
-                editableOrganizationIds.has(cell.organizationId),
-              ),
-            }
-          : current.draft;
-
-      if (!isAdmin && !developmentMode && saveDraft.organizations.length === 0) return;
-
       await savePersistedOrderMatrix({
         draft: saveDraft,
         persistedOrderIds: current.persistedOrderIds,
@@ -521,13 +625,11 @@ export function TicketOrdersTable({
 
   function resetDevToSource() {
     if (!developmentMode || !canWrite) return;
-    const source =
-      category === 'wristband'
-        ? wristbandOrderDraft2026
-        : category === 'pocketfolder'
-          ? pocketfolderOrderDraft2026
-          : ticketOrderDraft2026;
-    const next = cloneOrderDraft(source);
+    const next = scopeDevDraft(
+      cloneOrderDraft(devSource(category)),
+      visibleOrganizationIds,
+      devAreaTest,
+    );
     setMatrices((state) => ({
       ...state,
       [category]: {
@@ -538,7 +640,8 @@ export function TicketOrdersTable({
       },
     }));
     setDirty((state) => ({ ...state, [category]: false }));
-    sessionStorage.removeItem(storageKey(category));
+    sessionStorage.removeItem(storageKey(category, devAreaTest));
+    if (devAreaTest) sessionStorage.removeItem(statusStorageKey(category));
   }
 
   if (loading && !draft) {
@@ -557,7 +660,7 @@ export function TicketOrdersTable({
     );
   }
 
-  if (!isAdmin && !developmentMode) {
+  if (!isAdmin && (!developmentMode || devAreaTest)) {
     return (
       <AreaOrderForm
         language={language}
