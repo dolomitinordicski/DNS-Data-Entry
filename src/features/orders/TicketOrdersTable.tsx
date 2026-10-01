@@ -512,7 +512,7 @@ export function TicketOrdersTable({
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !developmentMode) {
     return (
       <AreaOrderForm
         language={language}
