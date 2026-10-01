@@ -17,7 +17,7 @@ export interface OrderMatrixItem {
     sourceComparison2025: number;
     sourceAreaTotal2026: number;
     sourcePrinterTotal2026: number;
-    areaTotalOrganizationIds: string[];
+    areaTotalOrganizationIds: readonly string[];
   };
 }
 
