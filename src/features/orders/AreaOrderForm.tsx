@@ -29,6 +29,7 @@ const copy = {
     saving: 'Speichert…',
     dirty: 'Nicht gespeicherte Änderungen',
     allSubmitted: 'Bestellung an DNS übermittelt',
+    lockedAfterSubmit: 'Nach dem Absenden gesperrt',
     submitInfo:
       'Beim Absenden werden die Mengen jeder Organisation einzeln gespeichert. DNS erhält daraus automatisch die Gesamtmatrix.',
   },
@@ -53,6 +54,7 @@ const copy = {
     saving: 'Salvataggio…',
     dirty: 'Modifiche non salvate',
     allSubmitted: 'Ordine inviato a DNS',
+    lockedAfterSubmit: 'Bloccato dopo l’invio',
     submitInfo:
       'Con l’invio le quantità restano registrate per singola organizzazione. DNS ottiene automaticamente la matrice complessiva.',
   },
@@ -103,6 +105,9 @@ export function AreaOrderForm({
   const t = copy[language];
   const writableOrganizations = draft.organizations.filter((organization) =>
     writableOrganizationIds.has(organization.organizationId),
+  );
+  const editableOrganizations = writableOrganizations.filter(
+    (organization) => (statuses[organization.organizationId] ?? 'draft') === 'draft',
   );
   const allSubmitted =
     writableOrganizations.length > 0 &&
@@ -158,6 +163,7 @@ export function AreaOrderForm({
       {draft.organizations.map((organization) => {
         const status = statuses[organization.organizationId] ?? 'draft';
         const writable = writableOrganizationIds.has(organization.organizationId);
+        const locked = status !== 'draft';
         return (
           <section key={organization.organizationId} className="dns-card p-5 md:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -184,6 +190,7 @@ export function AreaOrderForm({
               <div className="flex flex-wrap gap-2">
                 <span className="dns-pill">{statusLabel(status, language)}</span>
                 {!writable && <span className="dns-pill">{language === 'de' ? 'Nur Lesen' : 'Sola lettura'}</span>}
+                {writable && locked && <span className="dns-pill">{t.lockedAfterSubmit}</span>}
               </div>
             </div>
 
@@ -230,7 +237,7 @@ export function AreaOrderForm({
                       type="number"
                       min="0"
                       step="1"
-                      disabled={!canWrite || !writable || saving}
+                      disabled={!canWrite || !writable || locked || saving}
                       value={value ?? ''}
                       onChange={(event) =>
                         onQuantityChange(
@@ -268,7 +275,7 @@ export function AreaOrderForm({
           <button
             type="button"
             onClick={onSaveDraft}
-            disabled={!canWrite || saving || !dirty}
+            disabled={!canWrite || saving || !dirty || editableOrganizations.length === 0}
             className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep disabled:opacity-40"
           >
             {saving ? t.saving : t.saveDraft}
@@ -276,7 +283,7 @@ export function AreaOrderForm({
           <button
             type="button"
             onClick={onSubmit}
-            disabled={!canWrite || saving}
+            disabled={!canWrite || saving || editableOrganizations.length === 0}
             className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white disabled:opacity-40"
           >
             {saving ? t.saving : t.submit}
