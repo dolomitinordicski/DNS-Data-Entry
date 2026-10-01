@@ -3,6 +3,7 @@ import { loadPricing, savePricing, persistenceMessage } from './services/seasona
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
 import { ActiveArea } from './components/ActiveArea';
+import { ScrollProgress } from './components/ScrollProgress';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { DNS_SHARED_BRAND } from './config/brand';
@@ -22,11 +23,19 @@ import {
   subscribeToAuth,
 } from './services/auth';
 import { loadDNSCoreMaster } from './services/dnsCore';
-import { loadAndApplyDNSDesignSystem } from './services/designSystem';
+import {
+  applyDNSDesignFallback,
+  dnsRuntimeSignature,
+  loadAndApplyDNSDesignSystem,
+} from './services/designSystem';
 import { initDNSUIRuntime } from './services/uiRuntime';
 import type { DNSAccessContext, DNSPermission } from './types/access';
 import type { DNSCoreMaster } from './types/master';
 import type { PricingDraftRow } from './types/pricing';
+import {
+  dataContractsForModule,
+  DNS_DATA_CONTRACTS_VERSION,
+} from './config/dataContracts';
 
 type ConnectionState = 'loading' | 'ready' | 'error';
 type Language = 'de' | 'it';
@@ -130,11 +139,16 @@ function App() {
 
   useEffect(() => {
     let disposed = false;
-    let disposeRuntime: (() => void) | undefined;
+    let activeDesignSystem = applyDNSDesignFallback();
+    let disposeRuntime = initDNSUIRuntime(activeDesignSystem);
 
     void loadAndApplyDNSDesignSystem().then(({ designSystem }) => {
       if (disposed) return;
-      disposeRuntime = initDNSUIRuntime(designSystem);
+      if (dnsRuntimeSignature(designSystem) !== dnsRuntimeSignature(activeDesignSystem)) {
+        disposeRuntime?.();
+        disposeRuntime = initDNSUIRuntime(designSystem);
+      }
+      activeDesignSystem = designSystem;
     });
 
     return () => {
@@ -286,7 +300,11 @@ function App() {
 
   if (!hasAccess) {
     return (
-      <div className="flex min-h-screen flex-col bg-dns-bg">
+      <div
+      className="flex min-h-screen flex-col bg-dns-bg"
+      data-dns-data-contracts-version={DNS_DATA_CONTRACTS_VERSION}
+      data-dns-active-contracts={activeDataContracts.map((contract) => contract.id).join(',')}
+    >
         <header className="bg-dns-deep text-white">
           <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3.5 md:px-8">
             <div className="flex items-center gap-4">
@@ -322,6 +340,7 @@ function App() {
   const active =
     allowedModules.find((module) => module.id === activeModule) ??
     allowedModules[0];
+  const activeDataContracts = dataContractsForModule(activeModule);
   const canManagePricing = effectivePermissions.has('pricing.manage');
 
   function leaveSession() {
@@ -422,6 +441,7 @@ function App() {
       )}
 
       <nav className="dns-tab-nav" aria-label={t.operations}>
+        <ScrollProgress />
         <div className="dns-tab-nav-inner">
           {master && activeSeason && <SeasonSelector
             seasons={master.seasons
@@ -574,7 +594,7 @@ function App() {
             {t.footerMain}
           </div>
           <div className="font-alt text-[10px] uppercase tracking-[.04em] text-white/60">
-            {t.footerSub} · © 2026
+            {t.footerSub} · Data Contracts v{DNS_DATA_CONTRACTS_VERSION} · © 2026
           </div>
         </div>
       </footer>
