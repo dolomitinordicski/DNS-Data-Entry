@@ -101,9 +101,12 @@ export function AreaOrderForm({
   onSubmit: () => void;
 }) {
   const t = copy[language];
+  const writableOrganizations = draft.organizations.filter((organization) =>
+    writableOrganizationIds.has(organization.organizationId),
+  );
   const allSubmitted =
-    draft.organizations.length > 0 &&
-    draft.organizations.every((organization) => {
+    writableOrganizations.length > 0 &&
+    writableOrganizations.every((organization) => {
       const status = statuses[organization.organizationId] ?? 'draft';
       return status === 'submitted' || status === 'confirmed' || status === 'fulfilled';
     });
