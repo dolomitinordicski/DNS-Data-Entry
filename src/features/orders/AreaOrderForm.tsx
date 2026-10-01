@@ -76,6 +76,7 @@ export function AreaOrderForm({
   rowTotals,
   statuses,
   canWrite,
+  writableOrganizationIds,
   dirty,
   saving,
   onCategoryChange,
@@ -91,6 +92,7 @@ export function AreaOrderForm({
   rowTotals: Map<string, number>;
   statuses: Record<string, OrderStatus>;
   canWrite: boolean;
+  writableOrganizationIds: Set<string>;
   dirty: boolean;
   saving: boolean;
   onCategoryChange: (category: OrderMatrixCategory) => void;
@@ -152,6 +154,7 @@ export function AreaOrderForm({
 
       {draft.organizations.map((organization) => {
         const status = statuses[organization.organizationId] ?? 'draft';
+        const writable = writableOrganizationIds.has(organization.organizationId);
         return (
           <section key={organization.organizationId} className="dns-card p-5 md:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
@@ -175,7 +178,10 @@ export function AreaOrderForm({
                   )}
                 </div>
               </div>
-              <span className="dns-pill">{statusLabel(status, language)}</span>
+              <div className="flex flex-wrap gap-2">
+                <span className="dns-pill">{statusLabel(status, language)}</span>
+                {!writable && <span className="dns-pill">{language === 'de' ? 'Nur Lesen' : 'Sola lettura'}</span>}
+              </div>
             </div>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -221,7 +227,7 @@ export function AreaOrderForm({
                       type="number"
                       min="0"
                       step="1"
-                      disabled={!canWrite || saving}
+                      disabled={!canWrite || !writable || saving}
                       value={value ?? ''}
                       onChange={(event) =>
                         onQuantityChange(
