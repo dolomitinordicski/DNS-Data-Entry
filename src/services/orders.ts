@@ -4,6 +4,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  query,
+  where,
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './dnsCore';
@@ -18,6 +20,7 @@ import type {
   OrderMatrixItem,
   OrderMatrixOrganization,
   PersistedOrderMatrix,
+  PocketfolderSourceRow,
 } from '../types/orderMatrix';
 
 function orderId(
@@ -169,6 +172,21 @@ export async function loadPersistedOrderMatrix({
     persistedOrderIds,
     persistedLineIds,
   };
+}
+
+export async function loadPocketfolderSourceRows(
+  seasonId: string,
+): Promise<PocketfolderSourceRow[]> {
+  const snapshot = await getDocs(
+    query(
+      collection(db, 'pocketfolderSourceRows'),
+      where('seasonId', '==', seasonId),
+    ),
+  );
+
+  return snapshot.docs
+    .map((item) => ({ id: item.id, ...item.data() } as PocketfolderSourceRow))
+    .sort((a, b) => a.sourceRow - b.sourceRow);
 }
 
 export async function savePersistedOrderMatrix({
