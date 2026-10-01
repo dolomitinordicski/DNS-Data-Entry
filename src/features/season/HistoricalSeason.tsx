@@ -1,6 +1,6 @@
-import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useState } from 'react';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
+import { RegionLogos } from '../../components/RegionLogos';
 import { db } from '../../services/dnsCore';
 import type { DNSAccessContext, DNSPermission } from '../../types/access';
 import type { ModuleId } from '../../config/modules';
@@ -9,47 +9,42 @@ type Fact = Record<string, string | number | null>;
 type RecordData = { id: string; domain: string; label: string; sheet: string; organizationId: string; reportingAreaId: string; facts: Fact[] };
 type Control = { reportingAreaId: string; reportedQuantity: number; reportedAmount: number; detailQuantity: number; detailAmount: number; quantityDifference: number; amountDifference: number };
 type Summary = { reportedQuantity: number; reportedAmount: number; controls: Control[] };
+const AREA_NAMES: Record<string, [string,string]> = {
+ antholzertal:['Valle di Anterselva','Antholzertal'], 'gsiesertal-welsberg-taisten':['Val Casies–Monguelfo–Tesido','Gsiesertal–Welsberg–Taisten'],
+ 'drei-zinnen':['3 Cime Dolomites','3 Zinnen Dolomites'],osttirol:['Osttirol','Osttirol'],ahrntal:['Valle Aurina','Ahrntal'],
+ 'seiser-alm-dolomites-val-gardena':['Alpe di Siusi–Val Gardena','Seiser Alm–Gröden'],'cortina-d-ampezzo':['Cortina d’Ampezzo','Cortina d’Ampezzo'],'val-comelico':['Comelico','Comelico'],
+};
+const PRODUCT_NAMES: Record<string,[string,string]>={day:['Giornaliero','Tageskarte'],'wk-area':['Settimanale area','Wochenkarte Area'],'wk-dns':['Settimanale DNS','Wochenkarte DNS'],'sk-area':['Stagionale area','Saisonkarte Area'],'sk-dns':['Stagionale DNS','Saisonkarte DNS'],'sk-instructor':['Maestri fondo','Langlauflehrer']};
 
 export function HistoricalSeason({ module, access, language }: { module: ModuleId; access: DNSAccessContext | null; language: 'it' | 'de' }) {
- const [records,setRecords]=useState<RecordData[]>([]);
- const [summary,setSummary]=useState<Summary|null>(null);
- const [status,setStatus]=useState('');
- const domain=module==='sales'?'sales':module==='orders'?'orders':module==='kp'?'kp':module==='pricing'?'pricing':null;
- const it=language==='it';
- useEffect(()=>{
-  let current=true;setRecords([]);setSummary(null);setStatus(it?'Caricamento storico…':'Historie wird geladen…');
-  async function load() {
-   if (!access?.profile?.active) throw new Error(it?'Accedi per consultare i dati storici.':'Zum Lesen der Historie anmelden.');
-   let found:RecordData[]=[];
-   if (domain) {
-    const base=[where('seasonId','==','2025-26'),where('domain','==',domain)];
-    const permission:DNSPermission=domain==='sales'?'ticketSales.read':domain==='orders'?'ticketOrders.read':domain==='kp'?'kp.read':'pricing.read';
-    const grants=access.grants.filter(g=>g.active && g.permissions.includes(permission));
-    const unrestricted=access.isAdmin || domain==='pricing' || grants.some(g=>g.scopeType==='network' && g.scopeId==='dolomiti-nordicski');
-    const snapshots=await Promise.all((unrestricted?[base]:grants.filter(g=>['organization','reportingArea'].includes(g.scopeType)).map(g=>[...base,where(g.scopeType==='organization'?'organizationId':'reportingAreaId','==',g.scopeId)])).map(filters=>getDocs(query(collection(db,'historicalSeasonRecords'),...filters))));
-    found=[...new Map(snapshots.flatMap(s=>s.docs.map(d=>[d.id,{id:d.id,...d.data()} as RecordData] as const))).values()];
-   }
-   let control:Summary|null=null;
-   if (access.isAdmin) {const snapshot=await getDoc(doc(db,'historicalSeasonImports','2025-26'));if(snapshot.exists())control=snapshot.data() as Summary;}
-   if(current){setRecords(found);setSummary(control);setStatus(found.length || control?'':it?'Storico non ancora disponibile per questo ambito.':'Historie für diesen Bereich noch nicht verfügbar.');}
-  }
-  load().catch(e=>{if(current)setStatus(e.message);});return()=>{current=false;};
- },[domain,access,language,it]);
- const labels:Record<string,string> = it ? {item:'Articolo',quantity:'Quantità',sourceCell:'Cella originale',date:'Data',referenceKm:'Km unici di riferimento',naturalKm:'Km neve naturale',artificialKm:'Km neve artificiale',productCode:'Biglietto',salesChannel:'Canale',salesPeriod:'Periodo',amount:'Importo',currency:'Valuta',unitPrice:'Prezzo unitario'} : {item:'Artikel',quantity:'Menge',sourceCell:'Quellzelle',date:'Datum',referenceKm:'Einzelkm Referenz',naturalKm:'Km Naturschnee',artificialKm:'Km Kunstschnee',productCode:'Ticket',salesChannel:'Verkaufskanal',salesPeriod:'Zeitraum',amount:'Betrag',currency:'Währung',unitPrice:'Einzelpreis'};
- const number=(value:unknown)=>typeof value==='number'?value.toLocaleString(it?'it-IT':'de-DE',{maximumFractionDigits:2}):value===null?(it?'Non disponibile':'Nicht verfügbar'):String(value);
+ const [records,setRecords]=useState<RecordData[]>([]);const [summary,setSummary]=useState<Summary|null>(null);const [status,setStatus]=useState('');const it=language==='it';
+ const domains=(module==='season'||module==='verification')?['sales','orders','pricing','kp']:module==='sales'?['sales']:module==='orders'?['orders']:module==='kp'?['kp']:module==='pricing'?['pricing']:[];
+ useEffect(()=>{let current=true;setRecords([]);setSummary(null);setStatus(it?'Caricamento storico…':'Historie wird geladen…');
+  async function load(){if(!access?.profile?.active)throw new Error(it?'Accedi per consultare lo storico.':'Zum Lesen der Historie anmelden.');
+   const loaded=await Promise.all(domains.map(async domain=>{const permission:DNSPermission=domain==='sales'?'ticketSales.read':domain==='orders'?'ticketOrders.read':domain==='kp'?'kp.read':'pricing.read';const grants=access.grants.filter(g=>g.active&&g.permissions.includes(permission));const unrestricted=access.isAdmin||domain==='pricing'||grants.some(g=>g.scopeType==='network'&&g.scopeId==='dolomiti-nordicski');const base=[where('seasonId','==','2025-26'),where('domain','==',domain)];const sets=unrestricted?[base]:grants.filter(g=>['organization','reportingArea'].includes(g.scopeType)).map(g=>[...base,where(g.scopeType==='organization'?'organizationId':'reportingAreaId','==',g.scopeId)]);const result=await Promise.all(sets.map(filters=>getDocs(query(collection(db,'historicalSeasonRecords'),...filters))));return result.flatMap(s=>s.docs.map(d=>({id:d.id,...d.data()} as RecordData)));}));
+   const found=[...new Map(loaded.flat().map(r=>[r.id,r])).values()];let control:Summary|null=null;if(access.isAdmin){const snap=await getDoc(doc(db,'historicalSeasonImports','2025-26'));if(snap.exists())control=snap.data() as Summary;}if(current){setRecords(found);setSummary(control);setStatus(found.length||control?'':it?'Storico non ancora disponibile per questo ambito.':'Historie für diesen Bereich noch nicht verfügbar.');}}
+  load().catch(e=>{if(current)setStatus(e.message);});return()=>{current=false;};},[domains.join(','),access,language,it]);
+ const n=(v:unknown)=>typeof v==='number'?v.toLocaleString(it?'it-IT':'de-DE',{maximumFractionDigits:1}):v==null?'—':String(v);
+ const product=(key:unknown)=>{const v=String(key);return PRODUCT_NAMES[v]?.[it?0:1]??v;};const areaLabel=(id:string)=>AREA_NAMES[id]?.[it?0:1]??id;
+ const groups=[...new Map(records.filter(r=>r.reportingAreaId).map(r=>[r.reportingAreaId,records.filter(x=>x.reportingAreaId===r.reportingAreaId)])).values()];
+ const scoped=records.filter(r=>r.domain!=='pricing');
+ const totals=(rows:RecordData[])=>rows.flatMap(r=>r.facts).reduce<{q:number;e:number}>((a,f)=>({q:a.q+(typeof f.quantity==='number'?f.quantity:0),e:a.e+(typeof f.amount==='number'?f.amount:0)}),{q:0,e:0});
+ const header=(it?'Area':'Region');
  return <div className="space-y-5">
-  <section className="dns-card p-6"><h2 className="dns-section-title">WS 2025–26 · {it?'Storico in sola lettura':'Unveränderliche Historie'}</h2>
-   <p className="mt-2 text-sm text-dns-muted">{it?'Dati originali importati da Excel. I riepiloghi dichiarati e i dettagli sono conservati separatamente.':'Originaldaten aus Excel. Gemeldete Summen und Detaildaten werden getrennt aufbewahrt.'}</p>
-   {status && <p role="status" className="mt-3 text-sm">{status}</p>}
+  <section className="dns-card p-6"><h2 className="dns-section-title">WS 2025–26 · {it?'Storico':'Historie'} · {it?'sola lettura':'schreibgeschützt'}</h2><p className="mt-2 text-sm text-dns-muted">{it?'Dati per area e partner. Apri una regione per vedere il dettaglio.':'Daten nach Region und Partner. Region öffnen, um Details anzuzeigen.'}</p>{status&&<p role="status" className="mt-3 text-sm">{status}</p>}
+   {module==='season'&&records.length>0&&<div className="mt-5 grid gap-3 sm:grid-cols-4">{['sales','orders','pricing','kp'].map(d=><div className="rounded-lg border border-dns-mid/15 p-3" key={d}><div className="text-xs uppercase text-dns-muted">{{sales:it?'Vendite': 'Verkäufe',orders:it?'Ordini':'Bestellungen',pricing:it?'Tariffe':'Preise',kp:'KP'}[d]}</div><div className="mt-1 font-semibold">{records.filter(r=>r.domain===d).length} {it?'partner':'Partner'}</div></div>)}</div>}
   </section>
-  {summary && (module==='season' || module==='sales' || module==='verification') && <section className="dns-card p-6">
-   <h3 className="dns-section-title">{it?'Riepilogo dichiarato nel file':'Gemeldete Gesamtsumme'}</h3>
-   <p className="mt-3 text-lg">{number(summary.reportedQuantity)} {it?'biglietti':'Tickets'} · {number(summary.reportedAmount)} €</p>
-   <div className="mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr>{(it?['Regione','Quantità dichiarata','Quantità dettagli','Importo dichiarato €','Importo dettagli €','Differenza €']:['Region','Gemeldete Menge','Detailmenge','Gemeldet €','Details €','Differenz €']).map(h=><th className="p-2 text-left" key={h}>{h}</th>)}</tr></thead><tbody>{summary.controls.map(c=><tr key={c.reportingAreaId}><td className="p-2">{c.reportingAreaId}</td>{[c.reportedQuantity,c.detailQuantity,c.reportedAmount,c.detailAmount,c.amountDifference].map((v,i)=><td className="p-2" key={i}>{number(v)}</td>)}</tr>)}</tbody></table></div>
-   <p className="mt-3 text-sm">{it?'Le differenze sono anomalie del file originale e richiedono una decisione prima di usarle come base riconciliata in Analytics.':'Abweichungen stammen aus der Quelldatei und müssen vor der Verwendung als abgestimmte Analytics-Basis geklärt werden.'}</p>
-  </section>}
-  {records.map(record=><section className="dns-card p-5" key={record.id}><h3 className="dns-section-title flex items-center gap-3"><RegionLogos entityType="organization" entityId={record.organizationId} />{record.label}</h3><p className="mt-1 text-xs text-dns-muted">{record.sheet}</p>
-   <div className="mt-3 overflow-x-auto"><table className="w-full text-sm"><thead><tr>{[...new Set(record.facts.flatMap(f=>Object.keys(f)))].map(key=><th className="p-2 text-left" key={key}>{labels[key] ?? key}</th>)}</tr></thead><tbody>{record.facts.map((fact,i)=><tr key={i}>{[...new Set(record.facts.flatMap(f=>Object.keys(f)))].map(key=><td className="p-2" key={key}>{number(fact[key]??null)}</td>)}</tr>)}</tbody></table></div>
-  </section>)}
+  {summary&&(module==='season'||module==='sales'||module==='verification')&&<section className="dns-card p-6"><h3 className="dns-section-title">{it?'Vendite dichiarate nel file':'Gemeldeter Verkauf laut Quelldatei'}</h3><div className="mt-3 flex flex-wrap gap-x-8 gap-y-2 text-lg"><span>{n(summary.reportedQuantity)} {it?'biglietti':'Tickets'}</span><span>€ {n(summary.reportedAmount)}</span></div><div className="mt-4 overflow-x-auto"><table className="w-full text-sm"><thead><tr>{[header,it?'Quantità file':'Menge Datei',it?'Quantità dettagli':'Menge Details',it?'Importo file €':'Betrag Datei €',it?'Importo dettagli €':'Betrag Details €',it?'Scarto €':'Abweichung €'].map(x=><th className="p-2 text-left" key={x}>{x}</th>)}</tr></thead><tbody>{summary.controls.map(c=><tr key={c.reportingAreaId}><td className="p-2">{areaLabel(c.reportingAreaId)}</td>{[c.reportedQuantity,c.detailQuantity,c.reportedAmount,c.detailAmount,c.amountDifference].map((v,i)=><td className={`p-2 ${i===4&&v?'font-semibold text-red-700':''}`} key={i}>{n(v)}</td>)}</tr>)}</tbody></table></div><p className="mt-3 text-xs text-dns-muted">{it?'Il riepilogo e i dettagli differiscono di 34 biglietti e 2.745 €. Entrambi i valori sono conservati.':'Gemeldete Summe und Details weichen um 34 Tickets und 2.745 € ab. Beide Werte bleiben erhalten.'}</p></section>}
+  {groups.map(rows=>{const id=rows[0].reportingAreaId;const sales=rows.filter(r=>r.domain==='sales');const total=totals(sales);const order=rows.filter(r=>r.domain==='orders');const kp=rows.filter(r=>r.domain==='kp');const pricing=rows.filter(r=>r.domain==='pricing');
+   return <details key={id} className="dns-card group p-0"><summary className="flex cursor-pointer list-none items-center gap-3 p-4 sm:p-5"><RegionLogos entityType="reportingArea" entityId={id}/><span className="min-w-0 flex-1"><span className="block font-semibold">{areaLabel(id)}</span><span className="mt-1 block text-xs text-dns-muted">{sales.length} {it?'partner vendite':'Verkaufspartner'}{total.q?` · ${n(total.q)} ${it?'biglietti':'Tickets'} · € ${n(total.e)}`:''}</span></span><span aria-hidden="true" className="text-dns-muted group-open:rotate-180">⌄</span></summary>
+    <div className="space-y-4 border-t border-dns-mid/15 p-4 sm:p-5">
+     {sales.length>0&&<div><h4 className="text-sm font-semibold">{it?'Vendite per partner':'Verkäufe nach Partner'}</h4><div className="mt-2 overflow-x-auto"><table className="w-full text-sm"><thead><tr>{[it?'Partner':'Partner',it?'Quantità':'Menge',it?'Valore €':'Wert €',''].map((x,i)=><th key={i} className="p-2 text-left">{x}</th>)}</tr></thead><tbody>{sales.map(r=>{const t=totals([r]);return <tr key={r.id} className="border-t border-dns-mid/10"><td className="p-2"><span className="flex items-center gap-2"><RegionLogos entityType="organization" entityId={r.organizationId}/>{r.label}</span></td><td className="p-2">{n(t.q)}</td><td className="p-2">€ {n(t.e)}</td><td className="p-2 text-right"><details className="inline-block"><summary className="cursor-pointer text-dns-mid">{it?'Dettaglio':'Details'}</summary><div className="absolute z-10 mt-2 max-h-72 overflow-auto rounded bg-white p-3 text-left shadow-lg"><table><tbody>{r.facts.map((f,i)=><tr key={i}><td className="p-1">{product(f.productCode)} · {f.salesChannel} · {f.salesPeriod}</td><td className="p-1">{n(f.quantity)}</td><td className="p-1">€ {n(f.amount)}</td></tr>)}</tbody></table></div></details></td></tr>})}</tbody></table></div></div>}
+     {order.length>0&&<div><h4 className="text-sm font-semibold">{it?'Ordini':'Bestellungen'}</h4><div className="mt-2 overflow-x-auto"><table className="w-full text-sm"><thead><tr>{[it?'Partner':'Partner',it?'Categoria':'Kategorie',it?'Articoli':'Artikel'].map(x=><th className="p-2 text-left" key={x}>{x}</th>)}</tr></thead><tbody>{order.map(r=><tr key={r.id} className="border-t border-dns-mid/10"><td className="p-2">{r.label}</td><td className="p-2">{r.id.includes('wristband')?(it?'Braccialetti':'Armbänder'):(it?'Tessere':'Tickets')}</td><td className="p-2">{r.facts.map(f=>`${String(f.item)}: ${n(f.quantity)}`).join(' · ')}</td></tr>)}</tbody></table></div></div>}
+     {pricing.length>0&&<div><h4 className="text-sm font-semibold">{it?'Tariffe originali':'Quellpreise'}</h4><div className="mt-2 flex flex-wrap gap-2">{pricing.flatMap(r=>r.facts.map((f,i)=><span key={`${r.id}-${i}`} className="rounded bg-dns-bg px-3 py-2 text-sm">{String(f.item)} · {f.unitPrice==null?'—':`€ ${n(f.unitPrice)}`}</span>))}</div></div>}
+     {kp.length>0&&<div><h4 className="text-sm font-semibold">{it?'Km neve per data di rilevazione':'Schneekilometer nach Stichtag'}</h4><div className="mt-2 overflow-x-auto"><table className="w-full text-sm"><thead><tr>{[it?'Partner':'Partner',it?'Rilevazione':'Stichtag',it?'Riferimento km':'Referenz km',it?'Naturale km':'Naturschnee km',it?'Artificiale km':'Kunstschnee km'].map(x=><th className="p-2 text-left" key={x}>{x}</th>)}</tr></thead><tbody>{kp.map(r=>r.facts.map((f,i)=><tr key={`${r.id}-${i}`} className="border-t border-dns-mid/10"><td className="p-2">{i===0?r.label:''}</td><td className="p-2">{String(f.date)}</td><td className="p-2">{n(f.referenceKm)}</td><td className="p-2">{n(f.naturalKm)}</td><td className="p-2">{n(f.artificialKm)}</td></tr>))}</tbody></table></div></div>}
+    </div>
+   </details>;
+  })}
+  {!records.length&&!status&&<section className="dns-card p-6">{it?'Nessun dato disponibile per questa selezione.':'Keine Daten für diese Auswahl verfügbar.'}</section>}
  </div>;
 }
