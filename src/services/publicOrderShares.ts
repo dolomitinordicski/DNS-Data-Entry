@@ -32,10 +32,29 @@ export interface PublicOrderShareDocument {
       displayColorHex?: string;
       displayTextColorHex?: string;
       supplierColorReference?: string;
+      pocketfolder?: {
+        reportingAreaId: string;
+        backLanguageOrder: 'de-it-en' | 'it-de-en';
+        sourceComparison2025: number;
+        sourceAreaTotal2026: number;
+        sourcePrinterTotal2026: number;
+        areaTotalOrganizationIds: string[];
+      };
     }>;
     organizations: Array<{
       organizationId: string;
       sourceLabel: string;
+      deliveryLocation?: {
+        id: string;
+        label: string;
+        contactName?: string;
+        recipientName: string;
+        addressLine1?: string;
+        postalLocality?: string;
+        phone?: string;
+        status: 'verified' | 'needs-confirmation' | 'incomplete';
+        notes?: string;
+      };
     }>;
     cells: Array<{
       organizationId: string;
@@ -47,17 +66,25 @@ export interface PublicOrderShareDocument {
 }
 
 function shareTitle(category: OrderMatrixCategory) {
-  return category === 'wristband'
-    ? {
-        de: 'Armbänder-Bestellung',
-        it: 'Ordine braccialetti',
-        en: 'Wristband order',
-      }
-    : {
-        de: 'Wochen- & Saisonkarten-Bestellung',
-        it: 'Ordine settimanali & stagionali',
-        en: 'Weekly & season card order',
-      };
+  if (category === 'wristband') {
+    return {
+      de: 'Armbänder-Bestellung',
+      it: 'Ordine braccialetti',
+      en: 'Wristband order',
+    };
+  }
+  if (category === 'pocketfolder') {
+    return {
+      de: 'Pocketfolder-Bestellung & Lieferadressen',
+      it: 'Ordine Pocketfolder e indirizzi di consegna',
+      en: 'Pocketfolder order & delivery addresses',
+    };
+  }
+  return {
+    de: 'Wochen- & Saisonkarten-Bestellung',
+    it: 'Ordine settimanali & stagionali',
+    en: 'Weekly & season card order',
+  };
 }
 
 export function buildPublicShareUrl(shareId: string) {
@@ -131,10 +158,14 @@ export async function publishPublicOrderShare(
         ...(item.supplierColorReference
           ? { supplierColorReference: item.supplierColorReference }
           : {}),
+        ...(item.pocketfolder ? { pocketfolder: item.pocketfolder } : {}),
       })),
       organizations: draft.organizations.map((organization) => ({
         organizationId: organization.organizationId,
         sourceLabel: organization.sourceLabel,
+        ...(organization.deliveryLocation
+          ? { deliveryLocation: organization.deliveryLocation }
+          : {}),
       })),
       cells: draft.cells.map((cell) => ({
         organizationId: cell.organizationId,
