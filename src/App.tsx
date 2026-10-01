@@ -543,6 +543,7 @@ function App() {
                 master={master}
                 access={access}
                 canWrite={effectivePermissions.has('kp.write')}
+                canVerify={effectivePermissions.has('kp.verify')}
                 developmentMode={developmentMode}
               />
             </div>
