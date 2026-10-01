@@ -52,6 +52,10 @@ const copy = {
     areaTotal: 'AREA gesamt',
     printerTotal: 'Druckerei gesamt',
     currentTotal: 'Aktuell',
+    sourceCheck: 'Quellencheck',
+    sourceMatch: 'stimmt',
+    sourceDiff: 'Abweichung',
+    orderVsInvoice: 'Bestellung ≠ Faktura',
     backLanguage: 'Rückseite',
     delivery: 'Lieferadresse',
     needsConfirmation: 'Adresse bestätigen',
@@ -95,6 +99,10 @@ const copy = {
     areaTotal: 'Totale AREA',
     printerTotal: 'Totale tipografia',
     currentTotal: 'Attuale',
+    sourceCheck: 'Check fonte',
+    sourceMatch: 'coincide',
+    sourceDiff: 'scostamento',
+    orderVsInvoice: 'Ordine ≠ Faktura',
     backLanguage: 'Retro',
     delivery: 'Indirizzo consegna',
     needsConfirmation: 'Indirizzo da confermare',
@@ -556,7 +564,7 @@ export function TicketOrdersTable({
                 <WireIcon name="print" size={14} />
                 {t.print}
               </button>
-              <span className="dns-pill">{t.orderedVsSold}</span>
+              <span className="dns-pill">{category === 'pocketfolder' ? t.orderVsInvoice : t.orderedVsSold}</span>
               <span className="dns-pill">
                 {developmentMode ? t.localDraft : t.live}
               </span>
@@ -623,7 +631,7 @@ export function TicketOrdersTable({
                     <div><span className="text-dns-muted">{t.comparison}</span><div className="font-bold">{formatNumber(meta.sourceComparison2025, language)}</div></div>
                     <div><span className="text-dns-muted">{t.areaTotal}</span><div className="font-bold">{formatNumber(currentArea, language)} <span className="font-normal text-dns-muted">/ {formatNumber(meta.sourceAreaTotal2026, language)}</span></div></div>
                     <div><span className="text-dns-muted">{t.printerTotal}</span><div className="font-bold">{formatNumber(currentPrinter, language)} <span className="font-normal text-dns-muted">/ {formatNumber(meta.sourcePrinterTotal2026, language)}</span></div></div>
-                    <div><span className="text-dns-muted">{t.currentTotal}</span><div className="font-bold">{formatNumber(currentPrinter, language)}</div></div>
+                    <div><span className="text-dns-muted">{t.sourceCheck}</span><div className="font-bold">{currentArea === meta.sourceAreaTotal2026 && currentPrinter === meta.sourcePrinterTotal2026 ? `✓ ${t.sourceMatch}` : `△ ${t.sourceDiff}`}</div></div>
                   </div>
                 </div>
               );
@@ -677,7 +685,7 @@ export function TicketOrdersTable({
           </div>
         </div>
         <div className="dns-card p-4 md:p-5">
-          <div className="dns-kicker">{t.source}</div>
+          <div className="dns-kicker">{category === 'pocketfolder' ? t.pocketfolderSource : t.source}</div>
           <div className="mt-2 font-alt text-[11px] leading-relaxed text-dns-muted">
             {developmentMode
               ? t.localDraft
