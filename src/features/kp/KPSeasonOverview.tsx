@@ -222,7 +222,8 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
             <th className="p-2 text-right">23.12.2025</th>
             <th className="p-2 text-right">06.01.2026</th>
             <th className="p-2 text-right">20.01.2026</th>
-            <th className="p-2 text-right">KP · NS / KS</th>
+            <th className="p-2 text-right">Snow Mix · NS / KS</th>
+            <th className="p-2 text-right">KP FAIR</th>
           </tr></thead>
           <tbody>{CURATED_2025_26.map((area) => {
             const final = area.milestones[2];
@@ -240,6 +241,7 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
                 <span className="block text-[10px] text-dns-muted">{metric(milestone.openedKm, language)} km</span>
               </td>)}
               <td className="p-2 text-right tabular-nums"><strong>NS {metric(kp.natural, language)}% / KS {metric(kp.artificial, language)}%</strong><span className="block text-[10px] text-dns-muted">{metric(naturalKm, language)} / {metric(final.artificialKm, language)} km</span></td>
+              <td className="p-2 text-right tabular-nums"><strong>{metric(kp.artificial, language)}%</strong><span className="block text-[10px] text-dns-muted">KS / {it ? 'aperti' : 'geöffnet'}</span></td>
             </tr>;
           })}</tbody>
         </table>
@@ -256,7 +258,7 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
               <div className="font-semibold">{area.names[it ? 0 : 1]}</div>
               <div className="mt-0.5 text-xs text-dns-muted">{metric(area.final.openedKm, language)} / {metric(area.potentialKm, language)} km {it ? 'aperti' : 'geöffnet'}</div>
             </div>
-            <div className="text-right"><div className="text-sm font-semibold">NS {metric(area.kp.natural, language)}%</div><div className="text-sm font-semibold">KS {metric(area.kp.artificial, language)}%</div><div className="text-[10px] text-dns-muted">KP</div></div>
+            <div className="text-right"><div className="text-lg font-semibold">{metric(area.kp.artificial, language)}%</div><div className="text-[10px] text-dns-muted">KP FAIR · KS / {it ? 'aperti' : 'geöffnet'}</div></div>
           </div>
           <div className="mt-3 h-2 overflow-hidden rounded-full bg-dns-bg">
             <div className="h-full bg-dns-mid" style={{ width: Math.min(100, area.openingPct) + '%' }} />
@@ -265,6 +267,7 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
             <span>{it ? 'Apertura' : 'Öffnung'} {metric(area.openingPct, language)}%</span>
             <span>KS {metric(area.final.artificialKm, language)} km</span>
             <span>NS {metric(area.naturalKm, language)} km</span>
+            <span>Snow Mix · NS {metric(area.kp.natural, language)}% / KS {metric(area.kp.artificial, language)}%</span>
           </div>
         </div>)}
       </div>
@@ -316,8 +319,8 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
       <h3 className="dns-section-title">{it ? 'Nota metodologica' : 'Methodischer Hinweis'}</h3>
       <p className="mt-2 text-sm text-dns-muted">
         {it
-          ? 'KP = Kunstschneeproduktion. Il valore KP è la composizione NS/KS dei chilometri aperti alla stessa data; i km potenziali servono invece a misurare l’apertura della rete e non sono il denominatore del KP. Il vecchio file contiene valori regionali e partner non sempre additivi, quindi il quadro curato resta separato dai record originali.'
-          : 'KP = Kunstschneeproduktion. Der KP-Wert ist die NS/KS-Zusammensetzung der zum selben Stichtag geöffneten Kilometer; potenzielle Kilometer messen dagegen die Netzöffnung und sind nicht der KP-Nenner. Die alte Datei enthält Regions- und Partnerwerte, die nicht immer additiv sind; deshalb bleibt die kuratierte Sicht von den Originaldaten getrennt.'}
+          ? 'KP = Kunstschneeproduktion. Manteniamo due letture: Snow Mix descrive NS/KS, mentre KP FAIR è KS / km aperti × 100 ed è il valore candidato per FAIR. I km potenziali misurano separatamente l’apertura della rete. Il vecchio file contiene valori regionali e partner non sempre additivi, quindi il quadro curato resta separato dai record originali.'
+          : 'KP = Kunstschneeproduktion. Wir behalten zwei Auswertungen: Snow Mix beschreibt NS/KS; KP FAIR ist KS / geöffnete km × 100 und der Kandidatenwert für FAIR. Potenzielle Kilometer messen separat die Netzöffnung. Die alte Datei enthält Regions- und Partnerwerte, die nicht immer additiv sind; deshalb bleibt die kuratierte Sicht von den Originaldaten getrennt.'}
       </p>
     </section>
   </div>;
