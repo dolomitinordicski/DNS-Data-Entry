@@ -422,9 +422,11 @@ function App() {
 
       <nav className="dns-tab-nav" aria-label={t.operations}>
         <div className="dns-tab-nav-inner">
-          <div className="dns-tab-season">
-            WS {String(activeSeason?.id ?? '2026-27')}
-          </div>
+          <label className="dns-tab-season">
+            WS <select className="dns-season-select" aria-label={language === 'it' ? 'Stagione' : 'Saison'} value={String(activeSeason?.id ?? '')} onChange={(event) => setSelectedSeasonId(event.target.value)}>
+              {master?.seasons.filter(season => season.status === 'active' || season.id === '2025-26').map(season => <option key={season.id} value={String(season.id)}>{String(season.id)}</option>)}
+            </select><span aria-hidden="true" className="ml-1">⌄</span>
+          </label>
           {allowedModules.map((module) => (
             <button
               key={module.id}
@@ -462,12 +464,6 @@ function App() {
                 {activeModule === 'pricing' && !canManagePricing && (
                   <span className="dns-pill">{t.readOnly}</span>
                 )}
-                <label className="dns-pill">
-                  <span className="mr-2">{language === 'it' ? 'Stagione' : 'Saison'}</span>
-                  <select aria-label={language === 'it' ? 'Stagione' : 'Saison'} value={String(activeSeason?.id ?? '')} onChange={(event) => setSelectedSeasonId(event.target.value)}>
-                    {master?.seasons.filter(season => season.status === 'active' || season.id === '2025-26').map(season => <option key={season.id} value={String(season.id)}>{String(season.id)}{season.id === '2025-26' ? (language === 'it' ? ' · Storico' : ' · Historie') : ''}</option>)}
-                  </select>
-                </label>
               </div>
             </div>
           </section>
