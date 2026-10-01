@@ -34,6 +34,7 @@ import {
   loadAndApplyDNSDesignSystem,
 } from './services/designSystem';
 import { initDNSUIRuntime } from './services/uiRuntime';
+import { formatDNSCoreHeaderStatus } from '@dolomitinordicski/dns-shared-data/ui/header-status';
 import type { DNSAccessContext, DNSPermission } from './types/access';
 import type { DNSCoreMaster } from './types/master';
 import type { PricingDraftRow } from './types/pricing';
@@ -51,9 +52,6 @@ const copy = {
   de: {
     operations: 'Operations',
     seasonalOps: 'Saisonale Datenerfassung',
-    connected: 'DNS_Core verbunden',
-    unavailable: 'DNS_Core nicht erreichbar',
-    connecting: 'DNS_Core verbindet…',
     activeSeason: 'Aktive Saison',
     loadingSeason: 'Saison wird geladen',
     moduleReady:
@@ -81,9 +79,6 @@ const copy = {
   it: {
     operations: 'Operazioni',
     seasonalOps: 'Raccolta dati stagionale',
-    connected: 'DNS_Core connesso',
-    unavailable: 'DNS_Core non raggiungibile',
-    connecting: 'Connessione a DNS_Core…',
     activeSeason: 'Stagione attiva',
     loadingSeason: 'Caricamento stagione',
     moduleReady:
@@ -133,6 +128,18 @@ function App() {
     () => sessionStorage.getItem('dns-dev-persona') === 'area-test' ? 'area-test' : 'admin',
   );
   const t = copy[language];
+  const coreHeaderStatus = formatDNSCoreHeaderStatus(
+    connection === 'ready'
+      ? {
+          state: 'ready',
+          reportingAreas: master?.reportingAreas.length ?? 0,
+          organizations: master?.organizations.length ?? 0,
+        }
+      : connection === 'error'
+        ? { state: 'error' }
+        : { state: 'loading' },
+    language,
+  );
 
   const effectiveAccess = developmentMode ? devAccessFor(devPersona) : access;
 
@@ -303,7 +310,7 @@ function App() {
       <div className="flex min-h-screen flex-col bg-dns-bg">
         <header className="bg-dns-deep text-white">
           <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3.5 md:px-8">
-            <div className="flex items-center gap-4">
+            <div className="dns-tool-header-brand">
               <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="h-10 w-auto" />
               <div className="text-[22px] uppercase tracking-[.035em]">
                 <strong>DNS</strong> <span className="font-normal">DATA ENTRY</span>
@@ -358,25 +365,25 @@ function App() {
       data-dns-active-contracts={activeDataContracts.map((contract) => contract.id).join(',')}
     >
       <header data-dns-tool-header id="dns-data-entry-header" className="bg-dns-deep text-white shadow-[0_1px_0_rgba(255,255,255,.08)]">
-        <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-6 px-5 py-3.5 md:px-8">
+        <div className="dns-tool-header-shell">
           <div className="flex items-center gap-4">
             <img
               src={DNS_SHARED_BRAND.webLogoUrl}
               alt="Dolomiti NordicSki"
-              className="h-10 w-auto shrink-0 object-contain"
+              className="dns-tool-header-logo"
             />
-            <div>
-              <div className="text-[22px] uppercase tracking-[.035em] leading-none">
+            <div className="dns-tool-header-identity">
+              <div className="dns-tool-header-title">
                 <strong>DNS</strong> <span className="font-normal">DATA ENTRY</span>
               </div>
-              <div className="mt-1.5 font-alt text-[11px] uppercase tracking-[.06em] text-dns-light">
+              <div className="dns-tool-header-subtitle">
                 {t.seasonalOps}
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden text-right md:block">
+          <div className="dns-tool-header-actions">
+            <div className="dns-tool-header-account">
               <div className="font-alt text-[10px] text-white/75">
                 {developmentMode
                   ? (devPersona === 'area-test' ? DEV_AREA_TEST_LABEL : t.devAdmin)
@@ -389,9 +396,9 @@ function App() {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="dns-tool-header-controls">
               <AccessibilityMount language={language} />
-              <div className="flex gap-3 text-[10px] font-bold uppercase tracking-[.06em]">
+              <div className="dns-tool-header-language">
               {(['de', 'it'] as const).map((lang) => (
                 <button
                   key={lang}
@@ -414,30 +421,18 @@ function App() {
               onClick={leaveSession}
               data-dns-press
               data-dns-hover
-              className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white/80 hover:text-white"
+              className="dns-tool-header-session-action hover:text-white"
             >
               {developmentMode ? t.exitDev : t.signOut}
             </button>
 
             <div
-              className={[
-                'hidden items-center gap-2 text-[10px] font-semibold uppercase tracking-[.05em] xl:flex',
-                connection === 'ready' ? 'text-[#d8f0e7]' : '',
-                connection === 'error' ? 'text-[#ffd7d0]' : 'text-white/65',
-              ].join(' ')}
+              className="dns-tool-header-status"
+              data-state={coreHeaderStatus.state}
+              aria-live="polite"
             >
-              <span
-                className={[
-                  'h-2 w-2 rounded-full',
-                  connection === 'ready' ? 'bg-emerald-400' : '',
-                  connection === 'error' ? 'bg-orange-400' : 'bg-dns-light',
-                ].join(' ')}
-              />
-              {connection === 'ready'
-                ? `${t.connected} · ${master?.reportingAreas.length ?? 0}/${master?.organizations.length ?? 0}`
-                : connection === 'error'
-                  ? t.unavailable
-                  : t.connecting}
+              <span className="dns-tool-header-status-dot" />
+              {coreHeaderStatus.text}
             </div>
           </div>
         </div>
