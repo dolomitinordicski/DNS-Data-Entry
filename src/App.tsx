@@ -4,6 +4,7 @@ import { loadPricing, savePricing, persistenceMessage } from './services/seasona
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
 import { ScrollProgress } from './components/ScrollProgress';
+import { AccessibilityMount } from './components/AccessibilityMount';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { DNS_SHARED_BRAND } from './config/brand';
@@ -383,7 +384,9 @@ function App() {
               </div>
             </div>
 
-            <div className="flex gap-3 text-[10px] font-bold uppercase tracking-[.06em]">
+            <div className="flex items-center gap-3">
+              <AccessibilityMount language={language} />
+              <div className="flex gap-3 text-[10px] font-bold uppercase tracking-[.06em]">
               {(['de', 'it'] as const).map((lang) => (
                 <button
                   key={lang}
@@ -398,6 +401,7 @@ function App() {
                   {lang.toUpperCase()}
                 </button>
               ))}
+              </div>
             </div>
 
             <button
