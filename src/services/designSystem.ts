@@ -145,8 +145,9 @@ function applyVariables(designSystem: DNSDesignSystem) {
   root.style.setProperty('--dns-scroll-progress-track', navigation.tabs.scrollProgress.track);
 }
 
-export function applyDNSDesignFallback() {
-  const fallback = applyDNSDesignFallback();
+export function applyDNSDesignFallback(): DNSDesignSystem {
+  const fallback = mergeDesignSystem();
+  applyVariables(fallback);
   return fallback;
 }
 
