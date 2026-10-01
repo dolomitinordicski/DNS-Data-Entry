@@ -216,7 +216,10 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
       <section className="dns-card overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-dns-mid/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
           <div className="dns-section-title">{t.area}</div>
+          <div className="flex min-w-0 items-center gap-3">
+            <RegionLogos entityType="reportingArea" entityId={selectedArea} />
           <select
+            aria-label={t.areaLabel}
             value={selectedArea}
             onChange={(event) => setSelectedArea(event.target.value)}
             className="rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-[11px] text-dns-deep outline-none"
@@ -227,6 +230,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
               </option>
             ))}
           </select>
+          </div>
         </div>
         {renderRows(areaRows, true)}
       </section>
