@@ -40,7 +40,7 @@ interface Props {
 
 const copy = {
   de: {
-    title: 'Ticket-Bestellungen',
+    title: 'Bestellungen',
     intro:
       'Saisonale Bestellmatrix nach dem bisherigen DNS-Workflow: Organisationen in den Zeilen, bestellbare Artikel in den Spalten.',
     wristbands: 'Armbänder',
@@ -83,7 +83,7 @@ const copy = {
     shareDirty: 'Zuerst die Änderungen in Firestore speichern.',
   },
   it: {
-    title: 'Ordini biglietti',
+    title: 'Ordini',
     intro:
       'Matrice ordini stagionale secondo il precedente workflow DNS: organizzazioni sulle righe, articoli ordinabili sulle colonne.',
     wristbands: 'Braccialetti',
