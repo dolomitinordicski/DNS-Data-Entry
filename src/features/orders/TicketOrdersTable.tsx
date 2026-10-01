@@ -8,6 +8,7 @@ import {
 } from '../../config/orders2026';
 import {
   loadPersistedOrderMatrix,
+  loadPocketfolderSourceRows,
   savePersistedOrderMatrix,
 } from '../../services/orders';
 import {
@@ -17,6 +18,7 @@ import {
   revokePublicOrderShare,
 } from '../../services/publicOrderShares';
 import { OrderPrintSheet } from './OrderPrintSheet';
+import { PocketfolderSourceView } from './PocketfolderSourceView';
 import { WireIcon } from '../../components/WireIcon';
 import type { DNSAccessContext } from '../../types/access';
 import type { CanonicalRecord } from '../../types/master';
@@ -24,6 +26,7 @@ import type {
   OrderMatrixCategory,
   OrderMatrixDraft,
   PersistedOrderMatrix,
+  PocketfolderSourceRow,
 } from '../../types/orderMatrix';
 
 type Language = 'de' | 'it';
@@ -46,6 +49,8 @@ const copy = {
     wristbands: 'Armbänder',
     tickets: 'Wochen- & Saisonkarten',
     pocketfolders: 'Pocketfolder',
+    operativeView: 'Operative Matrix',
+    sourceView: 'Quellenansicht',
     source: 'Quelle: ALL TICKETS 2026-27.xlsx',
     pocketfolderSource: 'Quelle: FOLDER BROCHURE WS 2026-27 mit Lieferadressen für Dialog.xlsx',
     comparison: 'Vergleich 2025/26',
@@ -93,6 +98,8 @@ const copy = {
     wristbands: 'Braccialetti',
     tickets: 'Settimanali & stagionali',
     pocketfolders: 'Pocketfolder',
+    operativeView: 'Matrice operativa',
+    sourceView: 'Vista fonte',
     source: 'Fonte: ALL TICKETS 2026-27.xlsx',
     pocketfolderSource: 'Fonte: FOLDER BROCHURE WS 2026-27 mit Lieferadressen für Dialog.xlsx',
     comparison: 'Confronto 2025/26',
@@ -224,6 +231,8 @@ export function TicketOrdersTable({
 }: Props) {
   const t = copy[language];
   const [category, setCategory] = useState<OrderMatrixCategory>('wristband');
+  const [pocketfolderView, setPocketfolderView] = useState<'operational' | 'source'>('operational');
+  const [pocketfolderSourceRows, setPocketfolderSourceRows] = useState<PocketfolderSourceRow[]>([]);
   const [matrices, setMatrices] = useState<
     Partial<Record<OrderMatrixCategory, PersistedOrderMatrix>>
   >({});
@@ -266,10 +275,11 @@ export function TicketOrdersTable({
           pocketfolder: devMatrix('pocketfolder'),
         });
         setDirty({ wristband: false, ticket: false, pocketfolder: false });
+        setPocketfolderSourceRows([]);
         return;
       }
 
-      const [wristband, ticket, pocketfolder] = await Promise.all([
+      const [wristband, ticket, pocketfolder, sourceRows] = await Promise.all([
         loadPersistedOrderMatrix({
           seasonId,
           category: 'wristband',
@@ -288,9 +298,11 @@ export function TicketOrdersTable({
           visibleOrganizationIds,
           organizationAreaById,
         }),
+        loadPocketfolderSourceRows(seasonId),
       ]);
 
       setMatrices({ wristband, ticket, pocketfolder });
+      setPocketfolderSourceRows(sourceRows);
       setDirty({ wristband: false, ticket: false, pocketfolder: false });
     } catch (reason) {
       console.error('Order matrix load failed', reason);
@@ -497,14 +509,16 @@ export function TicketOrdersTable({
 
   return (
     <div className="space-y-5 order-print-area">
-      <OrderPrintSheet
-        language={language}
-        seasonId={seasonId}
-        category={category}
-        items={draft.items}
-        organizations={draft.organizations}
-        cells={draft.cells}
-      />
+      {!(category === 'pocketfolder' && pocketfolderView === 'source') && (
+        <OrderPrintSheet
+          language={language}
+          seasonId={seasonId}
+          category={category}
+          items={draft.items}
+          organizations={draft.organizations}
+          cells={draft.cells}
+        />
+      )}
       {isAdmin && !developmentMode && (
         <section className="no-print dns-card p-5 md:p-6">
           <div className="dns-section-title">{t.publicShare}</div>
@@ -600,6 +614,36 @@ export function TicketOrdersTable({
       </section>
 
       {category === 'pocketfolder' && (
+        <section className="dns-card p-3">
+          <div className="inline-flex rounded-md border border-dns-mid/15 bg-dns-bg p-1">
+            {([
+              ['operational', t.operativeView],
+              ['source', t.sourceView],
+            ] as const).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPocketfolderView(id)}
+                className={[
+                  'rounded px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] transition',
+                  pocketfolderView === id
+                    ? 'bg-white text-dns-deep shadow-sm'
+                    : 'text-dns-muted hover:text-dns-deep',
+                ].join(' ')}
+                aria-pressed={pocketfolderView === id}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {category === 'pocketfolder' && pocketfolderView === 'source' && (
+        <PocketfolderSourceView rows={pocketfolderSourceRows} language={language} />
+      )}
+
+      {category === 'pocketfolder' && pocketfolderView === 'operational' && (
         <section className="dns-card p-5 md:p-6">
           <div className="dns-section-title">Pocketfolder · WS {seasonId}</div>
           <p className="mt-2 max-w-5xl font-alt text-[10px] leading-relaxed text-dns-muted">
@@ -671,7 +715,10 @@ export function TicketOrdersTable({
         </section>
       )}
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className={[
+        'grid gap-4 md:grid-cols-3',
+        category === 'pocketfolder' && pocketfolderView === 'source' ? 'hidden' : '',
+      ].join(' ')}>
         <div className="dns-card p-4 md:p-5">
           <div className="dns-kicker">{t.total}</div>
           <div className="mt-2 text-[27px] font-bold text-dns-deep">
@@ -696,7 +743,10 @@ export function TicketOrdersTable({
         </div>
       </section>
 
-      <section className="dns-card overflow-hidden">
+      <section className={[
+        'dns-card overflow-hidden',
+        category === 'pocketfolder' && pocketfolderView === 'source' ? 'hidden' : '',
+      ].join(' ')}>
         <div className="flex flex-col gap-3 border-b border-dns-mid/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
           <p className="font-alt text-[10px] leading-relaxed text-dns-muted">
             {t.blankInfo}
