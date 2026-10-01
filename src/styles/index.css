@@ -39,7 +39,6 @@
   --dns-scroll-progress-height: 3px;
   --dns-scroll-progress-color: #AAD0D1;
   --dns-scroll-progress-track: transparent;
-  --dns-header-height: 68px;
 }
 
 @layer base {
