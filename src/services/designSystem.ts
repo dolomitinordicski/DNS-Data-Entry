@@ -86,7 +86,7 @@ function mergeDesignSystem(payload: DesignPayload = {}): DNSDesignSystem {
 
 function applyVariables(designSystem: DNSDesignSystem) {
   const root = document.documentElement;
-  const { colors, typography, shape, shadow, motion } = designSystem;
+  const { colors, typography, shape, shadow, motion, contextSelector } = designSystem;
 
   root.style.setProperty('--color-dns-deep', colors.deep);
   root.style.setProperty('--color-dns-mid', colors.mid);
@@ -107,6 +107,15 @@ function applyVariables(designSystem: DNSDesignSystem) {
   root.style.setProperty('--dns-motion-standard', `${motion.standardMs}ms`);
   root.style.setProperty('--dns-motion-reveal', `${motion.reveal.durationMs}ms`);
   root.style.setProperty('--dns-motion-easing', motion.easing);
+
+  root.style.setProperty('--dns-context-selected-bg', contextSelector.selected.background);
+  root.style.setProperty('--dns-context-selected-text', contextSelector.selected.text);
+  root.style.setProperty('--dns-context-selected-border', contextSelector.selected.border);
+  root.style.setProperty('--dns-context-hover-bg', contextSelector.hover.background);
+  root.style.setProperty('--dns-context-hover-border', contextSelector.hover.border);
+  root.style.setProperty('--dns-context-focus-color', contextSelector.focus.color);
+  root.style.setProperty('--dns-context-focus-width', `${contextSelector.focus.widthPx}px`);
+  root.style.setProperty('--dns-context-focus-offset', `${contextSelector.focus.offsetPx}px`);
 }
 
 export async function loadAndApplyDNSDesignSystem() {
