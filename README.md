@@ -22,3 +22,8 @@ Current rollout:
 - canonical regional assets and shared operational context styling.
 
 The application exposes the active shared Data Contract IDs on the authorized shell for diagnostics and migration checks.
+
+
+### Accessibility v1
+
+DNS Data Entry mounts the shared Foundation accessibility runtime from `@dolomitinordicski/dns-shared-data/ui/accessibility` in the authenticated application header. Preferences use the common `dns-accessibility-v1` local browser key and are not written to Firebase.
