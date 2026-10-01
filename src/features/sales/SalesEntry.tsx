@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import { loadSales, saveSales, resolvePricing, persistenceMessage } from '../../services/seasonalPersistence';
 import { RegionLogos } from '../../components/RegionLogos';
 import { productLabels, channelLabels, periodLabels } from '../../config/pricing';
 import type { DNSCoreMaster } from '../../types/master';
@@ -7,16 +8,19 @@ import type { PricingDraftRow, ProductCode, SalesChannel, SalesPeriod } from '..
 import type { SalesDraftRow } from '../../types/sales';
 
 const copy = {
-  de: { title: 'Verkäufe erfassen', draft: 'Sitzungsentwurf · nicht in Firebase gespeichert', intro: 'Tatsächlich verkaufte Tickets je Organisation, Kanal und Periode. Bestellungen werden nicht als Verkäufe übernommen.', organization: 'Organisation', area: 'Gebiet', quantity: 'Verkaufte Tickets', price: 'Tarif', calculated: 'Berechnet', actual: 'Gemeldeter Umsatz', reason: 'Begründung der Abweichung', total: 'Umsatz · vollständige Zeilen', missing: 'Tarif fehlt', pending: 'Unvollständige Angaben', complete: 'Ausgefüllte Zeilen vollständig', empty: 'Keine Organisation für diesen Bereich freigeschaltet.', source: 'Tarife aus dem aktuellen Sitzungsentwurf', help: 'Gemeldeten Umsatz nur bei Abweichungen eintragen; eine Begründung ist dann erforderlich. Leere Menge bedeutet nicht gemeldet, 0 bedeutet keine Verkäufe.', warning: 'Entwürfe bleiben beim Tabwechsel erhalten. Beim Neuladen oder Abmelden gehen sie verloren.' },
-  it: { title: 'Inserimento vendite', draft: 'Bozza di sessione · non salvata in Firebase', intro: 'Biglietti effettivamente venduti per organizzazione, canale e periodo. Gli ordini non vengono trasformati in vendite.', organization: 'Organizzazione', area: 'Area', quantity: 'Biglietti venduti', price: 'Tariffa', calculated: 'Calcolato', actual: 'Ricavo dichiarato', reason: 'Motivo della rettifica', total: 'Ricavi · righe complete', missing: 'Tariffa mancante', pending: 'Dati incompleti', complete: 'Righe compilate complete', empty: 'Nessuna organizzazione abilitata per questo ambito.', source: 'Tariffe dalla bozza della sessione corrente', help: 'Inserisci il ricavo dichiarato solo per rettificare il calcolo; in questo caso serve una motivazione. Quantità vuota significa non dichiarata, 0 significa nessuna vendita.', warning: 'Le bozze restano disponibili cambiando tab. Si perdono ricaricando la pagina o uscendo.' },
+  de: { title: 'Verkäufe erfassen', draft: 'Entwurf · explizit in Firebase speichern', intro: 'Tatsächlich verkaufte Tickets je Organisation, Kanal und Periode. Bestellungen werden nicht als Verkäufe übernommen.', organization: 'Organisation', area: 'Gebiet', quantity: 'Verkaufte Tickets', price: 'Tarif', calculated: 'Berechnet', actual: 'Gemeldeter Umsatz', reason: 'Begründung der Abweichung', total: 'Umsatz · vollständige Zeilen', missing: 'Tarif fehlt', pending: 'Unvollständige Angaben', complete: 'Ausgefüllte Zeilen vollständig', empty: 'Keine Organisation für diesen Bereich freigeschaltet.', source: 'Gespeicherte Zeilen behalten ihren Preis-Snapshot; Änderungen verwenden den aktuellen Tarif', help: 'Gemeldeten Umsatz nur bei Abweichungen eintragen; eine Begründung ist dann erforderlich. Leere Menge bedeutet nicht gemeldet, 0 bedeutet keine Verkäufe.', warning: 'Nicht gespeicherte Änderungen gehen beim Neuladen verloren. Tarife zuerst in Firebase speichern.' },
+  it: { title: 'Inserimento vendite', draft: 'Bozza · salvataggio esplicito in Firebase', intro: 'Biglietti effettivamente venduti per organizzazione, canale e periodo. Gli ordini non vengono trasformati in vendite.', organization: 'Organizzazione', area: 'Area', quantity: 'Biglietti venduti', price: 'Tariffa', calculated: 'Calcolato', actual: 'Ricavo dichiarato', reason: 'Motivo della rettifica', total: 'Ricavi · righe complete', missing: 'Tariffa mancante', pending: 'Dati incompleti', complete: 'Righe compilate complete', empty: 'Nessuna organizzazione abilitata per questo ambito.', source: 'Le righe salvate conservano il prezzo del salvataggio; le modifiche usano la tariffa corrente', help: 'Inserisci il ricavo dichiarato solo per rettificare il calcolo; in questo caso serve una motivazione. Quantità vuota significa non dichiarata, 0 significa nessuna vendita.', warning: 'Le modifiche non salvate si perdono ricaricando la pagina. Salva prima le tariffe in Firebase.' },
 };
 
-export function SalesEntry({ master, access, developmentMode, canWrite, language, seasonId, pricingRows, rows, onChange }: {
+export function SalesEntry({ master, access, developmentMode, canWrite, language, seasonId, pricingRows, rows, onChange, pricingLoaded }: {
   master: DNSCoreMaster; access: DNSAccessContext | null; developmentMode: boolean; canWrite: boolean;
   language: 'de' | 'it'; seasonId: string; pricingRows: PricingDraftRow[]; rows: SalesDraftRow[];
-  onChange: (rows: SalesDraftRow[]) => void;
+  onChange: Dispatch<SetStateAction<SalesDraftRow[]>>; pricingLoaded: boolean;
 }) {
   const t = copy[language];
+  const [busy, setBusy] = useState(false);
+  const [loadedScope, setLoadedScope] = useState('');
+  const [status, setStatus] = useState('');
   const [orgId, setOrgId] = useState('');
   const [channel, setChannel] = useState<SalesChannel>('official');
   const [period, setPeriod] = useState<SalesPeriod>('regular');
@@ -33,7 +37,25 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
   const areaIds = Array.isArray(org?.reportingAreaIds) ? org.reportingAreaIds as string[] : [];
   const [selectedArea, setSelectedArea] = useState('');
   const areaId = areaIds.includes(selectedArea) ? selectedArea : areaIds[0] ?? '';
-  const editable = canWrite && Boolean(org) && (developmentMode || access?.isAdmin || (access?.grants ?? []).some((grant) =>
+  const scope = JSON.stringify([seasonId, org?.id, areaId]);
+  useEffect(() => {
+    let active = true;
+    setStatus('');
+    setLoadedScope('');
+    setBusy(false);
+    if (developmentMode) { setLoadedScope(scope); return; }
+    if (!org || !areaId) return;
+    setBusy(true);
+    loadSales(seasonId, org.id, areaId).then((saved) => {
+      if (!active) return;
+      onChange((current) => [...current, ...saved.filter((row) => !current.some((item) => item.id === row.id))]);
+      setLoadedScope(scope);
+    }).catch((error) => { if (active) setStatus(persistenceMessage(error, language)); })
+      .finally(() => { if (active) setBusy(false); });
+    return () => { active = false; };
+  }, [scope, developmentMode, onChange]);
+
+  const editable = !busy && loadedScope === scope && canWrite && Boolean(org) && (developmentMode || access?.isAdmin || (access?.grants ?? []).some((grant) =>
     grant.active && grant.permissions.includes('ticketSales.write') &&
     (grant.scopeType === 'network' || (grant.scopeType === 'organization' && grant.scopeId === org?.id) || (grant.scopeType === 'reportingArea' && grant.scopeId === areaId)),
   ));
@@ -42,28 +64,44 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
   const cells = products.map((productCode) => {
     const id = JSON.stringify([seasonId, org?.id, areaId, productCode, channel, period]);
     const draft: SalesDraftRow = rows.find((row) => row.id === id) ?? { id, seasonId, organizationId: org?.id ?? '', reportingAreaId: areaId, productCode, salesChannel: channel, salesPeriod: period, quantity: null, amountOverride: null, amountOverrideReason: '' };
-    const price = ['organization', 'reportingArea', 'network'].map((scope) => pricingRows.find((row) =>
-      row.seasonId === seasonId && row.scopeType === scope && row.scopeId === (scope === 'organization' ? org?.id : scope === 'reportingArea' ? areaId : 'dolomiti-nordicski') && row.productCode === productCode && row.salesChannel === channel && row.salesPeriod === period,
-    )).find((row) => row?.unitPrice !== null && row?.unitPrice !== undefined)?.unitPrice ?? null;
+    const price = draft.pricing?.unitPrice ?? resolvePricing(pricingRows, draft)?.unitPrice ?? null;
     const calculated = draft.quantity === 0 ? 0 : draft.quantity !== null && price !== null ? Math.round(draft.quantity * price * 100) / 100 : null;
     const valid = draft.quantity !== null && (draft.amountOverride !== null ? Boolean(draft.amountOverrideReason.trim()) : calculated !== null);
     return { draft, price, calculated, valid, amount: valid ? draft.amountOverride ?? calculated : null };
   });
   function patch(draft: SalesDraftRow, values: Partial<SalesDraftRow>) {
     if (!editable) return;
-    onChange([...rows.filter((row) => row.id !== draft.id), { ...draft, ...values }]);
+    setStatus('');
+    onChange((current) => [...current.filter((row) => row.id !== draft.id), { ...draft, ...values, pricing: undefined }]);
+  }
+  async function persist() {
+    setBusy(true);
+    setStatus('');
+    try {
+      const saved = await saveSales(cells.filter((cell) => !cell.draft.pricing).map((cell) => cell.draft), pricingRows);
+      onChange((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
+      setStatus(language === 'de' ? 'In Firebase gespeichert' : 'Salvato in Firebase');
+    } catch (error) {
+      setStatus(persistenceMessage(error, language));
+    } finally { setBusy(false); }
   }
   const inputClass = 'w-full rounded-md border border-dns-mid/20 bg-white px-2 py-2 font-alt text-[11px] disabled:bg-dns-bg';
   return <section className="dns-card p-5 md:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="dns-section-title">{t.title}</h2><span className="dns-pill">{t.draft}</span></div>
+    <div className="mt-3 flex flex-wrap items-center gap-3">
+      <button type="button" disabled={!editable || !pricingLoaded || developmentMode || !cells.some((cell) => cell.valid && !cell.draft.pricing) || cells.some((cell) => (cell.draft.quantity !== null || cell.draft.amountOverride !== null) && !cell.valid)} onClick={persist} className="rounded-md bg-dns-deep px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-40">
+        {busy ? (language === 'de' ? 'Laden…' : 'Caricamento…') : (language === 'de' ? 'In Firebase speichern' : 'Salva in Firebase')}
+      </button>
+      <span role="status" className="font-alt text-[11px]">{status}</span>
+    </div>
     <p className="mt-3 font-alt text-[12px] text-dns-muted">{t.intro}</p>
     <p className="mt-2 font-alt text-[11px] text-dns-muted">{t.warning}</p>
     {!org ? <p className="mt-4">{t.empty}</p> : <>
       <div className="mt-5 grid gap-3 md:grid-cols-4">
-        <label className="text-[11px]">{t.organization}<select className={inputClass} value={org.id} onChange={(event) => setOrgId(event.target.value)}>{organizations.map((item) => <option key={item.id} value={item.id}>{String(item.canonicalName ?? item.id)}</option>)}</select></label>
-        <label className="text-[11px]">{t.area}<select className={inputClass} value={areaId} onChange={(event) => setSelectedArea(event.target.value)}>{areaIds.map((id) => <option key={id} value={id}>{String(master.reportingAreas.find((area) => area.id === id)?.canonicalName ?? id)}</option>)}</select></label>
-        <label className="text-[11px]">{language === 'de' ? 'Kanal' : 'Canale'}<select className={inputClass} value={channel} onChange={(event) => setChannel(event.target.value as SalesChannel)}>{Object.entries(channelLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
-        <label className="text-[11px]">{language === 'de' ? 'Periode' : 'Periodo'}<select className={inputClass} value={period} onChange={(event) => setPeriod(event.target.value as SalesPeriod)}>{Object.entries(periodLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
+        <label className="text-[11px]">{t.organization}<select disabled={busy} className={inputClass} value={org.id} onChange={(event) => setOrgId(event.target.value)}>{organizations.map((item) => <option key={item.id} value={item.id}>{String(item.canonicalName ?? item.id)}</option>)}</select></label>
+        <label className="text-[11px]">{t.area}<select disabled={busy} className={inputClass} value={areaId} onChange={(event) => setSelectedArea(event.target.value)}>{areaIds.map((id) => <option key={id} value={id}>{String(master.reportingAreas.find((area) => area.id === id)?.canonicalName ?? id)}</option>)}</select></label>
+        <label className="text-[11px]">{language === 'de' ? 'Kanal' : 'Canale'}<select disabled={busy} className={inputClass} value={channel} onChange={(event) => setChannel(event.target.value as SalesChannel)}>{Object.entries(channelLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
+        <label className="text-[11px]">{language === 'de' ? 'Periode' : 'Periodo'}<select disabled={busy} className={inputClass} value={period} onChange={(event) => setPeriod(event.target.value as SalesPeriod)}>{Object.entries(periodLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
       </div>
       <div className="dns-entity-label mt-4"><RegionLogos entityType="reportingArea" entityId={areaId} /><strong className="text-[12px]">{String(master.reportingAreas.find((area) => area.id === areaId)?.canonicalName ?? areaId)}</strong></div>
       <p className="mt-3 font-alt text-[11px] text-dns-muted">{t.source}. {t.help}</p>
