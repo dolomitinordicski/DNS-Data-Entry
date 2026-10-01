@@ -13,6 +13,10 @@
   --dns-control-radius: 6px;
   --dns-card-shadow: 0 1px 4px rgba(13,77,94,.07);
   --dns-header-shadow: 0 1px 0 rgba(255,255,255,.08);
+  --dns-motion-fast: 200ms;
+  --dns-motion-standard: 300ms;
+  --dns-motion-reveal: 600ms;
+  --dns-motion-easing: ease;
 }
 
 @layer base {
@@ -91,7 +95,7 @@
     letter-spacing: .06em;
     text-transform: uppercase;
     white-space: nowrap;
-    transition: color .2s ease, border-color .2s ease;
+    transition: color var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease), border-color var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease);
     scroll-snap-align: start;
   }
 

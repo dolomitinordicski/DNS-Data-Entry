@@ -21,6 +21,7 @@ import {
 } from './services/auth';
 import { loadDNSCoreMaster } from './services/dnsCore';
 import { loadAndApplyDNSDesignSystem } from './services/designSystem';
+import { initDNSUIRuntime } from './services/uiRuntime';
 import type { DNSAccessContext, DNSPermission } from './types/access';
 import type { DNSCoreMaster } from './types/master';
 import type { PricingDraftRow } from './types/pricing';
@@ -125,7 +126,18 @@ function App() {
   const t = copy[language];
 
   useEffect(() => {
-    void loadAndApplyDNSDesignSystem();
+    let disposed = false;
+    let disposeRuntime: (() => void) | undefined;
+
+    void loadAndApplyDNSDesignSystem().then(({ designSystem }) => {
+      if (disposed) return;
+      disposeRuntime = initDNSUIRuntime(designSystem);
+    });
+
+    return () => {
+      disposed = true;
+      disposeRuntime?.();
+    };
   }, []);
 
   useEffect(() => {
@@ -274,6 +286,8 @@ function App() {
             <button
               type="button"
               onClick={leaveSession}
+              data-dns-press
+              data-dns-hover
               className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white"
             >
               {developmentMode ? t.exitDev : t.signOut}
@@ -344,8 +358,9 @@ function App() {
                   key={lang}
                   type="button"
                   onClick={() => setLanguage(lang)}
+                  data-dns-press
                   className={[
-                    'border-0 border-b-2 bg-transparent px-1 py-1 text-white transition',
+                    'border-0 border-b-2 bg-transparent px-1 py-1 text-white',
                     language === lang ? 'border-white' : 'border-transparent opacity-60',
                   ].join(' ')}
                 >
@@ -357,6 +372,8 @@ function App() {
             <button
               type="button"
               onClick={leaveSession}
+              data-dns-press
+              data-dns-hover
               className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white/80 hover:text-white"
             >
               {developmentMode ? t.exitDev : t.signOut}
@@ -402,6 +419,7 @@ function App() {
               key={module.id}
               type="button"
               onClick={() => setActiveModule(module.id)}
+              data-dns-press
               className={[
                 'dns-tab',
                 activeModule === module.id ? 'dns-tab-active' : '',
@@ -416,7 +434,7 @@ function App() {
 
       <div className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-5 md:px-8">
         <main className="space-y-5">
-          <section className="dns-card p-5 md:p-6">
+          <section className="dns-card p-5 md:p-6" data-dns-reveal>
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
               <div>
                 <div className="dns-kicker">{active.phase[language]}</div>
@@ -441,11 +459,14 @@ function App() {
           </section>
 
           {activeModule === 'season' && (
-            <SeasonSetup language={language} season={activeSeason} />
+            <div key="season" data-dns-reveal>
+              <SeasonSetup language={language} season={activeSeason} />
+            </div>
           )}
 
           {activeModule === 'pricing' && master && activeSeason && (
-            <PricingSetup
+            <div key="pricing" data-dns-reveal>
+              <PricingSetup
               language={language}
               seasonId={String(activeSeason.id)}
               reportingAreas={master.reportingAreas}
@@ -457,10 +478,12 @@ function App() {
               canSave={canManagePricing && pricingLoaded && !developmentMode}
               saveStatus={pricingStatus}
             />
+            </div>
           )}
 
           {activeModule === 'orders' && master && activeSeason && (
-            <TicketOrdersTable
+            <div key="orders" data-dns-reveal>
+              <TicketOrdersTable
               language={language}
               seasonId={String(activeSeason.id)}
               canWrite={effectivePermissions.has('ticketOrders.write')}
@@ -468,24 +491,29 @@ function App() {
               access={access}
               organizations={master.organizations}
               isAdmin={access?.isAdmin === true}
-            />
+              />
+            </div>
           )}
 
           {activeModule === 'kp' && master && (
-            <ActiveArea key={activeModule} master={master} access={access}
-              developmentMode={developmentMode} language={language}
-              permission='kp.read' />
+            <div key="kp" data-dns-reveal>
+              <ActiveArea master={master} access={access}
+                developmentMode={developmentMode} language={language}
+                permission='kp.read' />
+            </div>
           )}
 
           {activeModule === 'sales' && master && activeSeason && (
+            <div key="sales" data-dns-reveal>
             <SalesEntry master={master} access={access} developmentMode={developmentMode}
               canWrite={effectivePermissions.has('ticketSales.write')} language={language}
               seasonId={String(activeSeason.id)} pricingRows={pricingRows}
               rows={salesRows} onChange={setSalesRows} pricingLoaded={pricingLoaded} />
+            </div>
           )}
 
           {!['season', 'pricing', 'orders', 'sales'].includes(activeModule) && (
-            <>
+            <div key={activeModule} data-dns-reveal className="space-y-5">
               <section className="dns-card p-6">
                 <div className="dns-section-title">{active.label[language]}</div>
                 <p className="mt-2 font-alt text-[12px] leading-relaxed text-dns-muted">
@@ -499,6 +527,9 @@ function App() {
                   {t.flow.map((item, index) => (
                     <div
                       key={item}
+                      data-dns-reveal
+                      data-dns-reveal-index={index}
+                      data-dns-reveal-stagger="compact"
                       className="relative rounded-lg border border-dns-mid/15 bg-dns-bg px-4 py-4 text-center"
                     >
                       <div className="text-[11px] font-bold uppercase tracking-[.05em]">
@@ -516,7 +547,7 @@ function App() {
                   {t.accounting}
                 </p>
               </section>
-            </>
+            </div>
           )}
         </main>
       </div>
