@@ -17,6 +17,7 @@ import {
   publishPublicOrderShare,
   revokePublicOrderShare,
 } from '../../services/publicOrderShares';
+import { AreaOrderForm } from './AreaOrderForm';
 import { OrderPrintSheet } from './OrderPrintSheet';
 import { PocketfolderSourceView } from './PocketfolderSourceView';
 import { WireIcon } from '../../components/WireIcon';
@@ -175,6 +176,7 @@ function devMatrix(category: OrderMatrixCategory): PersistedOrderMatrix {
     draft: loadDevDraft(category),
     persistedOrderIds: new Set<string>(),
     persistedLineIds: new Set<string>(),
+    orderStatuses: {},
   };
 }
 
@@ -450,8 +452,9 @@ export function TicketOrdersTable({
     }
   }
 
-  async function saveCurrent() {
-    if (!current || !canWrite || developmentMode || !dirty[category]) return;
+  async function saveCurrent(headerStatus?: 'draft' | 'submitted') {
+    if (!current || !canWrite || developmentMode) return;
+    if (!dirty[category] && !headerStatus) return;
 
     setSaving(true);
     setError(false);
@@ -460,6 +463,7 @@ export function TicketOrdersTable({
         draft: current.draft,
         persistedOrderIds: current.persistedOrderIds,
         persistedLineIds: current.persistedLineIds,
+        ...(headerStatus ? { headerStatus } : {}),
       });
       await loadAll();
     } catch (reason) {
@@ -485,6 +489,7 @@ export function TicketOrdersTable({
         draft: next,
         persistedOrderIds: new Set<string>(),
         persistedLineIds: new Set<string>(),
+        orderStatuses: {},
       },
     }));
     setDirty((state) => ({ ...state, [category]: false }));
@@ -504,6 +509,27 @@ export function TicketOrdersTable({
       <section className="dns-card p-6">
         <div className="dns-section-title">{t.error}</div>
       </section>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <AreaOrderForm
+        language={language}
+        seasonId={seasonId}
+        category={category}
+        draft={draft}
+        quantities={quantities}
+        rowTotals={rowTotals}
+        statuses={current?.orderStatuses ?? {}}
+        canWrite={canWrite}
+        dirty={dirty[category]}
+        saving={saving}
+        onCategoryChange={setCategory}
+        onQuantityChange={updateQuantity}
+        onSaveDraft={() => void saveCurrent('draft')}
+        onSubmit={() => void saveCurrent('submitted')}
+      />
     );
   }
 
