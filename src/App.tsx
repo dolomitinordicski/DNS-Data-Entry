@@ -6,6 +6,7 @@ import { modules, type ModuleId } from './config/modules';
 import { createInitialPricingDraft } from './config/pricing';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PricingSetup } from './features/pricing/PricingSetup';
+import { WireIcon } from './components/WireIcon';
 import { TicketOrdersTable } from './features/orders/TicketOrdersTable';
 import { PublicOrderSharePage } from './features/orders/PublicOrderSharePage';
 import { SeasonSetup } from './features/season/SeasonSetup';
@@ -382,9 +383,14 @@ function App() {
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
               <div>
                 <div className="dns-kicker">{active.phase[language]}</div>
-                <h1 className="mt-1 text-[27px] font-semibold tracking-[-.02em] text-dns-deep">
-                  {active.label[language]}
-                </h1>
+                <div className="mt-1 flex items-center gap-2.5">
+                  <span className="text-dns-mid">
+                    <WireIcon name={active.id} size={21} />
+                  </span>
+                  <h1 className="text-[27px] font-semibold tracking-[-.02em] text-dns-deep">
+                    {active.label[language]}
+                  </h1>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {activeModule === 'pricing' && !canManagePricing && (
