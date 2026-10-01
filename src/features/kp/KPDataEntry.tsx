@@ -4,10 +4,13 @@ import type { DNSAccessContext } from '../../types/access';
 import type { CanonicalRecord, DNSCoreMaster } from '../../types/master';
 import {
   loadKpEntries,
+  loadKpFairValidations,
   loadKpMilestones,
   saveKpEntry,
   saveKpMilestone,
+  validateKpFairCandidate,
   type KpEntryDoc,
+  type KpFairValidationDoc,
   type KpMilestoneDoc,
 } from '../../services/kp';
 
@@ -16,27 +19,50 @@ type Language = 'de' | 'it';
 type Draft = {
   uniqueNetworkKm: number;
   potentialOperationalKm: number;
-  values: Record<string, { naturalSnowKm: number; artificialSnowKm: number }>;
+  values: Record<string, { openedKm: number; artificialSnowKm: number }>;
   includeInKp: boolean;
   exclusionReason: string;
   notes: string;
 };
+
+type Candidate = {
+  potentialOperationalKm: number;
+  openedKm: number;
+  naturalSnowKm: number;
+  artificialSnowKm: number;
+  partnerCount: number;
+};
+
+const DEFAULT_MILESTONES_2026_27: KpMilestoneDoc[] = [
+  { id: '2026-27__m1', seasonId: '2026-27', date: '2026-12-23', label: '23.12.2026', order: 1 },
+  { id: '2026-27__m2', seasonId: '2026-27', date: '2027-01-06', label: '06.01.2027', order: 2 },
+  { id: '2026-27__m3', seasonId: '2026-27', date: '2027-01-20', label: '20.01.2027', order: 3 },
+];
 
 function ids(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
 }
 
 function n(value: number, language: Language, digits = 1) {
-  return value.toLocaleString(language === 'it' ? 'it-IT' : 'de-DE', { maximumFractionDigits: digits });
+  return value.toLocaleString(language === 'it' ? 'it-IT' : 'de-DE', {
+    maximumFractionDigits: digits,
+  });
 }
 
-function composition(natural: number, artificial: number) {
-  const total = natural + artificial;
-  if (total <= 0) return { natural: 0, artificial: 0, total: 0 };
+function pct(value: number, base: number) {
+  return base > 0 ? value / base * 100 : 0;
+}
+
+function nearlyEqual(a: number, b: number) {
+  return Math.abs(a - b) < 0.011;
+}
+
+function snowMix(openedKm: number, artificialSnowKm: number) {
+  const naturalSnowKm = Math.max(0, openedKm - artificialSnowKm);
   return {
-    natural: natural / total * 100,
-    artificial: artificial / total * 100,
-    total,
+    naturalSnowKm,
+    naturalPct: pct(naturalSnowKm, openedKm),
+    artificialPct: pct(artificialSnowKm, openedKm),
   };
 }
 
@@ -46,7 +72,7 @@ function blankDraft(milestones: KpMilestoneDoc[]): Draft {
     potentialOperationalKm: 0,
     values: Object.fromEntries(milestones.map((item) => [
       item.id,
-      { naturalSnowKm: 0, artificialSnowKm: 0 },
+      { openedKm: 0, artificialSnowKm: 0 },
     ])),
     includeInKp: true,
     exclusionReason: '',
@@ -58,8 +84,9 @@ function fromEntry(entry: KpEntryDoc | undefined, milestones: KpMilestoneDoc[]):
   if (!entry) return blankDraft(milestones);
   const values = Object.fromEntries(milestones.map((item) => {
     const stored = entry.milestones.find((value) => value.milestoneId === item.id);
+    const openedKm = stored?.openedKm ?? ((stored?.naturalSnowKm ?? 0) + (stored?.artificialSnowKm ?? 0));
     return [item.id, {
-      naturalSnowKm: stored?.naturalSnowKm ?? 0,
+      openedKm,
       artificialSnowKm: stored?.artificialSnowKm ?? 0,
     }];
   }));
@@ -73,18 +100,54 @@ function fromEntry(entry: KpEntryDoc | undefined, milestones: KpMilestoneDoc[]):
   };
 }
 
-export function KPDataEntry({ seasonId, language, master, access, canWrite, developmentMode }: {
+function candidateForArea(
+  entries: KpEntryDoc[],
+  reportingAreaId: string,
+  milestoneId: string,
+): Candidate {
+  return entries
+    .filter((entry) => entry.reportingAreaId === reportingAreaId && entry.includeInKp)
+    .reduce<Candidate>((total, entry) => {
+      const value = entry.milestones.find((item) => item.milestoneId === milestoneId);
+      if (!value) return total;
+      const openedKm = value.openedKm ?? (value.naturalSnowKm + value.artificialSnowKm);
+      total.potentialOperationalKm += entry.referenceKm.potentialOperationalKm ?? 0;
+      total.openedKm += openedKm;
+      total.artificialSnowKm += value.artificialSnowKm;
+      total.naturalSnowKm += Math.max(0, openedKm - value.artificialSnowKm);
+      total.partnerCount += 1;
+      return total;
+    }, {
+      potentialOperationalKm: 0,
+      openedKm: 0,
+      naturalSnowKm: 0,
+      artificialSnowKm: 0,
+      partnerCount: 0,
+    });
+}
+
+function validationMatches(validation: KpFairValidationDoc | undefined, candidate: Candidate) {
+  return Boolean(validation)
+    && nearlyEqual(validation!.potentialOperationalKm, candidate.potentialOperationalKm)
+    && nearlyEqual(validation!.openedKm, candidate.openedKm)
+    && nearlyEqual(validation!.naturalSnowKm, candidate.naturalSnowKm)
+    && nearlyEqual(validation!.artificialSnowKm, candidate.artificialSnowKm);
+}
+
+export function KPDataEntry({ seasonId, language, master, access, canWrite, canVerify, developmentMode }: {
   seasonId: string;
   language: Language;
   master: DNSCoreMaster;
   access: DNSAccessContext;
   canWrite: boolean;
+  canVerify: boolean;
   developmentMode: boolean;
 }) {
   const it = language === 'it';
   const [milestones, setMilestones] = useState<KpMilestoneDoc[]>([]);
   const [milestoneDrafts, setMilestoneDrafts] = useState<KpMilestoneDoc[]>([]);
   const [entries, setEntries] = useState<KpEntryDoc[]>([]);
+  const [validations, setValidations] = useState<KpFairValidationDoc[]>([]);
   const [selectedAreaId, setSelectedAreaId] = useState('');
   const [selectedOrgId, setSelectedOrgId] = useState('');
   const [draft, setDraft] = useState<Draft>(() => blankDraft([]));
@@ -93,9 +156,13 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
 
   const grants = access.grants.filter((grant) => grant.active);
   const networkRead = access.isAdmin || grants.some((grant) =>
-    grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski' && grant.permissions.includes('kp.read'));
+    grant.scopeType === 'network'
+    && grant.scopeId === 'dolomiti-nordicski'
+    && grant.permissions.includes('kp.read'));
   const networkWrite = access.isAdmin || grants.some((grant) =>
-    grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski' && grant.permissions.includes('kp.write'));
+    grant.scopeType === 'network'
+    && grant.scopeId === 'dolomiti-nordicski'
+    && grant.permissions.includes('kp.write'));
 
   const visibleOrganizations = useMemo(() => {
     if (networkRead) return master.organizations;
@@ -104,12 +171,14 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
     const readableAreas = new Set(grants.filter((grant) =>
       grant.scopeType === 'reportingArea' && grant.permissions.includes('kp.read')).map((grant) => grant.scopeId));
     return master.organizations.filter((organization) =>
-      readableOrgs.has(organization.id) || ids(organization.reportingAreaIds).some((areaId) => readableAreas.has(areaId)));
+      readableOrgs.has(organization.id)
+      || ids(organization.reportingAreaIds).some((areaId) => readableAreas.has(areaId)));
   }, [master.organizations, grants, networkRead]);
 
   const visibleAreaIds = useMemo(() => {
     const set = new Set<string>();
-    visibleOrganizations.forEach((organization) => ids(organization.reportingAreaIds).forEach((areaId) => set.add(areaId)));
+    visibleOrganizations.forEach((organization) =>
+      ids(organization.reportingAreaIds).forEach((areaId) => set.add(areaId)));
     return set;
   }, [visibleOrganizations]);
 
@@ -117,29 +186,44 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
   const selectedArea = visibleAreas.find((area) => area.id === selectedAreaId) ?? visibleAreas[0];
   const areaOrganizations = visibleOrganizations.filter((organization) =>
     selectedArea ? ids(organization.reportingAreaIds).includes(selectedArea.id) : false);
-  const selectedOrganization = areaOrganizations.find((organization) => organization.id === selectedOrgId) ?? areaOrganizations[0];
+  const selectedOrganization =
+    areaOrganizations.find((organization) => organization.id === selectedOrgId) ?? areaOrganizations[0];
 
   function canEditOrganization(organization: CanonicalRecord | undefined) {
     if (!organization || developmentMode || !canWrite) return false;
     if (networkWrite) return true;
     const areaIds = ids(organization.reportingAreaIds);
     return grants.some((grant) => grant.permissions.includes('kp.write') && (
-      (grant.scopeType === 'organization' && grant.scopeId === organization.id) ||
-      (grant.scopeType === 'reportingArea' && areaIds.includes(grant.scopeId))
+      (grant.scopeType === 'organization' && grant.scopeId === organization.id)
+      || (grant.scopeType === 'reportingArea' && areaIds.includes(grant.scopeId))
     ));
   }
 
   const canManageMilestones = !developmentMode && networkWrite;
+  const canValidateSelectedArea = Boolean(selectedArea)
+    && !developmentMode
+    && canVerify
+    && (access.isAdmin || grants.some((grant) =>
+      grant.permissions.includes('kp.verify') && (
+        (grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski')
+        || (grant.scopeType === 'reportingArea' && grant.scopeId === selectedArea?.id)
+      )));
 
   async function reload() {
     if (!access.profile?.active && !access.isAdmin) return;
-    const [loadedMilestones, loadedEntries] = await Promise.all([
+    const [loadedMilestones, loadedEntries, loadedValidations] = await Promise.all([
       loadKpMilestones(seasonId),
       loadKpEntries(seasonId, access),
+      loadKpFairValidations(seasonId, access),
     ]);
-    setMilestones(loadedMilestones);
+    const effectiveMilestones = loadedMilestones.length > 0
+      ? loadedMilestones
+      : seasonId === '2026-27'
+        ? DEFAULT_MILESTONES_2026_27
+        : [];
+    setMilestones(effectiveMilestones);
     setMilestoneDrafts([1, 2, 3].map((order) =>
-      loadedMilestones.find((item) => item.order === order) ?? {
+      effectiveMilestones.find((item) => item.order === order) ?? {
         id: `${seasonId}__m${order}`,
         seasonId,
         date: '',
@@ -147,6 +231,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
         order,
       }));
     setEntries(loadedEntries);
+    setValidations(loadedValidations);
   }
 
   useEffect(() => {
@@ -167,7 +252,9 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
   }, [selectedArea?.id, areaOrganizations.map((organization) => organization.id).join('|')]);
 
   useEffect(() => {
-    const entry = selectedOrganization ? entries.find((item) => item.entityId === selectedOrganization.id) : undefined;
+    const entry = selectedOrganization
+      ? entries.find((item) => item.entityId === selectedOrganization.id)
+      : undefined;
     setDraft(fromEntry(entry, milestones));
   }, [selectedOrganization?.id, entries, milestones]);
 
@@ -178,10 +265,10 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
       const configured = milestoneDrafts.filter((item) => item.date);
       for (const item of configured) await saveKpMilestone(item);
       await reload();
-      setStatus(it ? 'Milestone salvate in Firebase.' : 'Meilensteine in Firebase gespeichert.');
+      setStatus(it ? 'Milestone salvate in Firebase.' : 'Stichtage in Firebase gespeichert.');
     } catch (error) {
       console.error('KP milestone save failed', error);
-      setStatus(it ? 'Salvataggio milestone non riuscito.' : 'Meilensteine konnten nicht gespeichert werden.');
+      setStatus(it ? 'Salvataggio milestone non riuscito.' : 'Stichtage konnten nicht gespeichert werden.');
     } finally {
       setBusy(false);
     }
@@ -203,17 +290,25 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
           uniqueNetworkKm: Math.max(0, draft.uniqueNetworkKm),
           potentialOperationalKm: Math.max(0, draft.potentialOperationalKm),
         },
-        milestones: milestones.map((item) => ({
-          milestoneId: item.id,
-          naturalSnowKm: Math.max(0, draft.values[item.id]?.naturalSnowKm ?? 0),
-          artificialSnowKm: Math.max(0, draft.values[item.id]?.artificialSnowKm ?? 0),
-        })),
+        milestones: milestones.map((item) => {
+          const openedKm = Math.max(0, draft.values[item.id]?.openedKm ?? 0);
+          const artificialSnowKm = Math.min(
+            openedKm,
+            Math.max(0, draft.values[item.id]?.artificialSnowKm ?? 0),
+          );
+          return {
+            milestoneId: item.id,
+            openedKm,
+            naturalSnowKm: Math.max(0, openedKm - artificialSnowKm),
+            artificialSnowKm,
+          };
+        }),
         includeInKp: draft.includeInKp,
         exclusionReason: draft.includeInKp ? '' : draft.exclusionReason.trim(),
         notes: draft.notes.trim(),
       });
       await reload();
-      setStatus(it ? 'KP salvato in Firebase.' : 'KP in Firebase gespeichert.');
+      setStatus(it ? 'Dati KP salvati in Firebase.' : 'KP-Daten in Firebase gespeichert.');
     } catch (error) {
       console.error('KP save failed', error);
       setStatus(it ? 'Salvataggio KP non riuscito.' : 'KP konnte nicht gespeichert werden.');
@@ -222,15 +317,43 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
     }
   }
 
+  async function validateCandidate(milestone: KpMilestoneDoc, candidate: Candidate) {
+    if (!selectedArea) return;
+    setBusy(true);
+    setStatus('');
+    try {
+      await validateKpFairCandidate({
+        id: `${seasonId}__${selectedArea.id}__${milestone.id}`,
+        seasonId,
+        reportingAreaId: selectedArea.id,
+        milestoneId: milestone.id,
+        potentialOperationalKm: candidate.potentialOperationalKm,
+        openedKm: candidate.openedKm,
+        naturalSnowKm: candidate.naturalSnowKm,
+        artificialSnowKm: candidate.artificialSnowKm,
+      });
+      await reload();
+      setStatus(it ? 'KP FAIR validato.' : 'KP FAIR validiert.');
+    } catch (error) {
+      console.error('KP FAIR validation failed', error);
+      setStatus(it ? 'Validazione KP FAIR non riuscita.' : 'KP FAIR konnte nicht validiert werden.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const latestMilestone = [...milestones].sort((a, b) => b.order - a.order)[0];
-  const latestTotals = entries.reduce((total, entry) => {
-    const value = latestMilestone ? entry.milestones.find((item) => item.milestoneId === latestMilestone.id) : undefined;
-    if (!value || !entry.includeInKp) return total;
-    total.natural += value.naturalSnowKm;
-    total.artificial += value.artificialSnowKm;
-    return total;
-  }, { natural: 0, artificial: 0 });
-  const latestComposition = composition(latestTotals.natural, latestTotals.artificial);
+  const latestNetwork = latestMilestone
+    ? visibleAreas.reduce<Candidate>((total, area) => {
+        const candidate = candidateForArea(entries, area.id, latestMilestone.id);
+        total.potentialOperationalKm += candidate.potentialOperationalKm;
+        total.openedKm += candidate.openedKm;
+        total.naturalSnowKm += candidate.naturalSnowKm;
+        total.artificialSnowKm += candidate.artificialSnowKm;
+        total.partnerCount += candidate.partnerCount;
+        return total;
+      }, { potentialOperationalKm: 0, openedKm: 0, naturalSnowKm: 0, artificialSnowKm: 0, partnerCount: 0 })
+    : null;
 
   return <div className="space-y-5">
     <section className="dns-card p-6">
@@ -239,40 +362,48 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
           <h2 className="dns-section-title">KP · Kunstschneeproduktion</h2>
           <p className="mt-2 max-w-4xl text-sm text-dns-muted">
             {it
-              ? 'KP descrive il rapporto tra chilometri con neve naturale (NS) e chilometri con neve artificiale (KS) allo stesso momento di rilevazione. Viene mostrato come quota NS / quota KS sul totale NS+KS. I km potenziali restano un indicatore separato.'
-              : 'KP beschreibt das Verhältnis zwischen Kilometern mit Naturschnee (NS) und Kilometern mit Kunstschnee (KS) zum selben Stichtag. Angezeigt werden NS-Anteil / KS-Anteil an NS+KS. Potenzielle Kilometer bleiben ein separater Indikator.'}
+              ? 'Due letture dello stesso dato: Snow Mix descrive la composizione NS/KS; KP FAIR misura la quota di km innevati artificialmente sui km aperti (KS / aperti × 100). I km potenziali servono separatamente per misurare l’apertura della rete.'
+              : 'Zwei Auswertungen derselben Grunddaten: Snow Mix beschreibt die NS/KS-Zusammensetzung; KP FAIR misst den Anteil künstlich beschneiter Kilometer an den geöffneten Kilometern (KS / geöffnet × 100). Potenzielle Kilometer messen separat die Netzöffnung.'}
           </p>
         </div>
         <span className="dns-pill">{it ? 'Data Entry attivo' : 'Datenerfassung aktiv'}</span>
       </div>
+
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-dns-mid/15 p-4">
           <div className="text-xs uppercase text-dns-muted">{it ? 'Partner compilati' : 'Erfasste Partner'}</div>
           <div className="mt-1 text-2xl font-semibold">{entries.length}</div>
         </div>
         <div className="rounded-lg border border-dns-mid/15 p-4">
-          <div className="text-xs uppercase text-dns-muted">{it ? 'Milestone configurate' : 'Konfigurierte Stichtage'}</div>
+          <div className="text-xs uppercase text-dns-muted">{it ? 'Milestone' : 'Stichtage'}</div>
           <div className="mt-1 text-2xl font-semibold">{milestones.length}/3</div>
         </div>
         <div className="rounded-lg border border-dns-mid/15 p-4">
-          <div className="text-xs uppercase text-dns-muted">{it ? 'NS · ultima milestone' : 'NS · letzter Stichtag'}</div>
-          <div className="mt-1 text-2xl font-semibold">{latestComposition.total ? n(latestComposition.natural, language) + '%' : '—'}</div>
+          <div className="text-xs uppercase text-dns-muted">{it ? 'Apertura rete · ultima' : 'Netzöffnung · letzter'}</div>
+          <div className="mt-1 text-2xl font-semibold">
+            {latestNetwork && latestNetwork.potentialOperationalKm > 0
+              ? n(pct(latestNetwork.openedKm, latestNetwork.potentialOperationalKm), language) + '%'
+              : '—'}
+          </div>
         </div>
         <div className="rounded-lg border border-dns-mid/15 p-4">
-          <div className="text-xs uppercase text-dns-muted">{it ? 'KS · ultima milestone' : 'KS · letzter Stichtag'}</div>
-          <div className="mt-1 text-2xl font-semibold">{latestComposition.total ? n(latestComposition.artificial, language) + '%' : '—'}</div>
+          <div className="text-xs uppercase text-dns-muted">KP FAIR · {it ? 'ultima' : 'letzter'}</div>
+          <div className="mt-1 text-2xl font-semibold">
+            {latestNetwork && latestNetwork.openedKm > 0
+              ? n(pct(latestNetwork.artificialSnowKm, latestNetwork.openedKm), language) + '%'
+              : '—'}
+          </div>
         </div>
       </div>
-      {latestComposition.total > 0 && <p className="mt-3 text-xs text-dns-muted">
-        {it ? 'Somma dei record partner inclusi nel KP' : 'Summe der im KP enthaltenen Partnerdatensätze'} · NS {n(latestTotals.natural, language)} km / KS {n(latestTotals.artificial, language)} km
-      </p>}
     </section>
 
     <section className="dns-card p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="dns-section-title">{it ? 'Milestone stagionali' : 'Saison-Meilensteine'}</h3>
-          <p className="mt-1 text-xs text-dns-muted">{it ? 'Le date valgono per tutta la rete DNS.' : 'Die Stichtage gelten für das gesamte DNS-Netz.'}</p>
+          <h3 className="dns-section-title">{it ? 'Milestone stagionali' : 'Saison-Stichtage'}</h3>
+          <p className="mt-1 text-xs text-dns-muted">
+            {it ? 'Le tre date valgono per tutta la rete DNS.' : 'Die drei Stichtage gelten für das gesamte DNS-Netz.'}
+          </p>
         </div>
         {canManageMilestones && <button type="button" onClick={() => void persistMilestones()} disabled={busy}
           className="rounded-md bg-dns-deep px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
@@ -281,14 +412,17 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-3">
         {milestoneDrafts.map((item, index) => <label key={item.id} className="rounded-lg bg-dns-bg p-4">
-          <span className="text-xs font-bold uppercase tracking-[.05em] text-dns-mid">{it ? 'Milestone' : 'Stichtag'} {item.order}</span>
+          <span className="text-xs font-bold uppercase tracking-[.05em] text-dns-mid">
+            {it ? 'Milestone' : 'Stichtag'} {item.order}
+          </span>
           <input type="date" value={item.date} disabled={!canManageMilestones || busy}
             onChange={(event) => setMilestoneDrafts((current) => current.map((row, rowIndex) =>
-              rowIndex === index ? { ...row, date: event.target.value } : row))}
+              rowIndex === index
+                ? { ...row, date: event.target.value, label: event.target.value }
+                : row))}
             className="mt-2 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-sm disabled:opacity-60" />
         </label>)}
       </div>
-      {!canManageMilestones && <p className="mt-3 text-xs text-dns-muted">{it ? 'Le date possono essere configurate da DNS Admin o da un utente con permesso KP di rete.' : 'Stichtage können von DNS Admin oder einem Benutzer mit netzweitem KP-Recht konfiguriert werden.'}</p>}
     </section>
 
     <section className="dns-card p-6">
@@ -298,14 +432,16 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
           {it ? 'Area' : 'Region'}
           <select value={selectedArea?.id ?? ''} onChange={(event) => setSelectedAreaId(event.target.value)}
             className="dns-context-selector mt-1 w-full px-3 py-2 text-[11px]">
-            {visibleAreas.map((area) => <option key={area.id} value={area.id}>{String(area.canonicalName ?? area.id)}</option>)}
+            {visibleAreas.map((area) =>
+              <option key={area.id} value={area.id}>{String(area.canonicalName ?? area.id)}</option>)}
           </select>
         </label>
         <label className="text-xs font-semibold text-dns-muted">
           Partner
           <select value={selectedOrganization?.id ?? ''} onChange={(event) => setSelectedOrgId(event.target.value)}
             className="dns-context-selector mt-1 w-full px-3 py-2 text-[11px]">
-            {areaOrganizations.map((organization) => <option key={organization.id} value={organization.id}>{String(organization.canonicalName ?? organization.id)}</option>)}
+            {areaOrganizations.map((organization) =>
+              <option key={organization.id} value={organization.id}>{String(organization.canonicalName ?? organization.id)}</option>)}
           </select>
         </label>
       </div>
@@ -313,18 +449,22 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
       {selectedArea && selectedOrganization ? <div className="mt-5 space-y-5">
         <div className="flex items-center gap-3">
           <RegionLogos entityType="reportingArea" entityId={selectedArea.id} />
-          <div><div className="font-semibold">{String(selectedOrganization.canonicalName ?? selectedOrganization.id)}</div>
-            <div className="text-xs text-dns-muted">{String(selectedArea.canonicalName ?? selectedArea.id)}</div></div>
+          <div>
+            <div className="font-semibold">{String(selectedOrganization.canonicalName ?? selectedOrganization.id)}</div>
+            <div className="text-xs text-dns-muted">{String(selectedArea.canonicalName ?? selectedArea.id)}</div>
+          </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="text-xs font-semibold text-dns-muted">{it ? 'Km rete fisici / unici' : 'Physische / eindeutige Netz-km'}
+          <label className="text-xs font-semibold text-dns-muted">
+            {it ? 'Km rete fisici / unici' : 'Physische / eindeutige Netz-km'}
             <input type="number" min="0" step="0.1" value={draft.uniqueNetworkKm}
               disabled={!canEditOrganization(selectedOrganization) || busy}
               onChange={(event) => setDraft((current) => ({ ...current, uniqueNetworkKm: Number(event.target.value) }))}
               className="mt-1 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-sm" />
           </label>
-          <label className="text-xs font-semibold text-dns-muted">{it ? 'Km potenziali operativi' : 'Operative Potenzial-km'}
+          <label className="text-xs font-semibold text-dns-muted">
+            {it ? 'Km potenziali operativi' : 'Operative Potenzial-km'}
             <input type="number" min="0" step="0.1" value={draft.potentialOperationalKm}
               disabled={!canEditOrganization(selectedOrganization) || busy}
               onChange={(event) => setDraft((current) => ({ ...current, potentialOperationalKm: Number(event.target.value) }))}
@@ -332,35 +472,78 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
           </label>
         </div>
 
-        {milestones.length === 0 ? <div className="rounded-lg bg-dns-bg p-4 text-sm text-dns-muted">
-          {it ? 'Configura almeno una milestone prima di inserire i km NS/KS.' : 'Mindestens einen Stichtag konfigurieren, bevor NS-/KS-km erfasst werden.'}
-        </div> : <div className="overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr><th className="p-2 text-left">{it ? 'Rilevazione' : 'Stichtag'}</th><th className="p-2 text-right">NS km</th><th className="p-2 text-right">KS km</th><th className="p-2 text-right">KP · NS / KS</th></tr></thead>
+            <thead><tr>
+              <th className="p-2 text-left">{it ? 'Rilevazione' : 'Stichtag'}</th>
+              <th className="p-2 text-right">{it ? 'Aperti km' : 'Geöffnet km'}</th>
+              <th className="p-2 text-right">KS km</th>
+              <th className="p-2 text-right">NS km</th>
+              <th className="p-2 text-right">{it ? 'Apertura' : 'Öffnung'}</th>
+              <th className="p-2 text-right">Snow Mix</th>
+              <th className="p-2 text-right">KP FAIR</th>
+            </tr></thead>
             <tbody>{milestones.map((item) => {
-              const value = draft.values[item.id] ?? { naturalSnowKm: 0, artificialSnowKm: 0 };
-              const kp = composition(value.naturalSnowKm, value.artificialSnowKm);
+              const value = draft.values[item.id] ?? { openedKm: 0, artificialSnowKm: 0 };
+              const openedKm = Math.max(0, value.openedKm);
+              const artificialSnowKm = Math.min(openedKm, Math.max(0, value.artificialSnowKm));
+              const mix = snowMix(openedKm, artificialSnowKm);
               return <tr key={item.id} className="border-t border-dns-mid/10">
-                <td className="p-2"><strong>{item.date}</strong><span className="block text-[10px] text-dns-muted">{item.label}</span></td>
-                <td className="p-2 text-right"><input type="number" min="0" step="0.1" value={value.naturalSnowKm}
-                  disabled={!canEditOrganization(selectedOrganization) || busy}
-                  onChange={(event) => setDraft((current) => ({ ...current, values: { ...current.values, [item.id]: { ...value, naturalSnowKm: Number(event.target.value) } } }))}
-                  className="w-28 rounded-md border border-dns-mid/20 bg-white px-2 py-1.5 text-right" /></td>
-                <td className="p-2 text-right"><input type="number" min="0" step="0.1" value={value.artificialSnowKm}
-                  disabled={!canEditOrganization(selectedOrganization) || busy}
-                  onChange={(event) => setDraft((current) => ({ ...current, values: { ...current.values, [item.id]: { ...value, artificialSnowKm: Number(event.target.value) } } }))}
-                  className="w-28 rounded-md border border-dns-mid/20 bg-white px-2 py-1.5 text-right" /></td>
-                <td className="p-2 text-right tabular-nums">{kp.total ? `${n(kp.natural, language)}% / ${n(kp.artificial, language)}%` : '—'}</td>
+                <td className="p-2"><strong>{item.date}</strong></td>
+                <td className="p-2 text-right">
+                  <input type="number" min="0" step="0.1" value={value.openedKm}
+                    disabled={!canEditOrganization(selectedOrganization) || busy}
+                    onChange={(event) => {
+                      const opened = Math.max(0, Number(event.target.value));
+                      setDraft((current) => ({
+                        ...current,
+                        values: {
+                          ...current.values,
+                          [item.id]: {
+                            openedKm: opened,
+                            artificialSnowKm: Math.min(opened, current.values[item.id]?.artificialSnowKm ?? 0),
+                          },
+                        },
+                      }));
+                    }}
+                    className="w-24 rounded-md border border-dns-mid/20 bg-white px-2 py-1.5 text-right" />
+                </td>
+                <td className="p-2 text-right">
+                  <input type="number" min="0" max={openedKm} step="0.1" value={value.artificialSnowKm}
+                    disabled={!canEditOrganization(selectedOrganization) || busy}
+                    onChange={(event) => setDraft((current) => ({
+                      ...current,
+                      values: {
+                        ...current.values,
+                        [item.id]: {
+                          ...value,
+                          artificialSnowKm: Math.min(openedKm, Math.max(0, Number(event.target.value))),
+                        },
+                      },
+                    }))}
+                    className="w-24 rounded-md border border-dns-mid/20 bg-white px-2 py-1.5 text-right" />
+                </td>
+                <td className="p-2 text-right tabular-nums">{n(mix.naturalSnowKm, language)}</td>
+                <td className="p-2 text-right tabular-nums">
+                  {draft.potentialOperationalKm > 0 ? n(pct(openedKm, draft.potentialOperationalKm), language) + '%' : '—'}
+                </td>
+                <td className="p-2 text-right tabular-nums">
+                  {openedKm > 0 ? `NS ${n(mix.naturalPct, language)}% / KS ${n(mix.artificialPct, language)}%` : '—'}
+                </td>
+                <td className="p-2 text-right tabular-nums font-semibold">
+                  {openedKm > 0 ? n(pct(artificialSnowKm, openedKm), language) + '%' : '—'}
+                </td>
               </tr>;
             })}</tbody>
           </table>
-        </div>}
+        </div>
 
         <div className="grid gap-3 md:grid-cols-2">
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={draft.includeInKp} disabled={!canEditOrganization(selectedOrganization) || busy}
+            <input type="checkbox" checked={draft.includeInKp}
+              disabled={!canEditOrganization(selectedOrganization) || busy}
               onChange={(event) => setDraft((current) => ({ ...current, includeInKp: event.target.checked }))} />
-            {it ? 'Includi nel calcolo KP' : 'In KP-Berechnung einbeziehen'}
+            {it ? 'Includi nel calcolo KP area / FAIR' : 'In Regions-KP / FAIR einbeziehen'}
           </label>
           {!draft.includeInKp && <input type="text" value={draft.exclusionReason}
             disabled={!canEditOrganization(selectedOrganization) || busy}
@@ -375,18 +558,105 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, deve
           className="min-h-20 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-sm" />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-xs text-dns-muted">{entries.some((entry) => entry.entityId === selectedOrganization.id)
-            ? (it ? 'Record esistente: il salvataggio crea automaticamente una revisione audit.' : 'Bestehender Datensatz: Beim Speichern wird automatisch eine Audit-Revision angelegt.')
-            : (it ? 'Nuovo record KP.' : 'Neuer KP-Datensatz.')}</p>
+          <p className="text-xs text-dns-muted">
+            {entries.some((entry) => entry.entityId === selectedOrganization.id)
+              ? (it ? 'Il salvataggio crea automaticamente una revisione audit.' : 'Beim Speichern wird automatisch eine Audit-Revision angelegt.')
+              : (it ? 'Nuovo record KP.' : 'Neuer KP-Datensatz.')}
+          </p>
           <button type="button" onClick={() => void persistEntry()}
             disabled={!canEditOrganization(selectedOrganization) || busy || milestones.length === 0}
             className="rounded-md bg-dns-deep px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
-            {busy ? (it ? 'Salvataggio…' : 'Speichern…') : (it ? 'Salva KP' : 'KP speichern')}
+            {busy ? (it ? 'Salvataggio…' : 'Speichern…') : (it ? 'Salva dati KP' : 'KP-Daten speichern')}
           </button>
         </div>
-      </div> : <p className="mt-4 text-sm text-dns-muted">{it ? 'Nessun partner disponibile nel tuo ambito.' : 'Keine Partner im eigenen Zugriffsbereich verfügbar.'}</p>}
+      </div> : <p className="mt-4 text-sm text-dns-muted">
+        {it ? 'Nessun partner disponibile nel tuo ambito.' : 'Keine Partner im eigenen Zugriffsbereich verfügbar.'}
+      </p>}
 
       {status && <p role="status" className="mt-4 text-sm text-dns-muted">{status}</p>}
     </section>
+
+    {selectedArea && <section className="dns-card p-6">
+      <div className="flex items-center gap-3">
+        <RegionLogos entityType="reportingArea" entityId={selectedArea.id} />
+        <div>
+          <h3 className="dns-section-title">{it ? 'KP FAIR · candidato area' : 'KP FAIR · Regionskandidat'}</h3>
+          <p className="mt-1 text-xs text-dns-muted">
+            {it
+              ? 'Calcolato automaticamente dai partner inclusi. La validazione non modifica FAIR: certifica soltanto lo snapshot da usare come input.'
+              : 'Automatisch aus den einbezogenen Partnern berechnet. Die Validierung verändert FAIR nicht; sie bestätigt nur den Snapshot als Eingabewert.'}
+          </p>
+        </div>
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead><tr>
+            <th className="p-2 text-left">{it ? 'Milestone' : 'Stichtag'}</th>
+            <th className="p-2 text-right">{it ? 'Potenziali' : 'Potenzial'}</th>
+            <th className="p-2 text-right">{it ? 'Aperti' : 'Geöffnet'}</th>
+            <th className="p-2 text-right">KS</th>
+            <th className="p-2 text-right">{it ? 'Apertura' : 'Öffnung'}</th>
+            <th className="p-2 text-right">Snow Mix</th>
+            <th className="p-2 text-right">KP FAIR</th>
+            <th className="p-2 text-right">{it ? 'Stato' : 'Status'}</th>
+          </tr></thead>
+          <tbody>{milestones.map((milestone) => {
+            const candidate = candidateForArea(entries, selectedArea.id, milestone.id);
+            const mix = snowMix(candidate.openedKm, candidate.artificialSnowKm);
+            const validation = validations.find((item) =>
+              item.reportingAreaId === selectedArea.id && item.milestoneId === milestone.id);
+            const valid = validationMatches(validation, candidate);
+            const stale = Boolean(validation) && !valid;
+            return <tr key={milestone.id} className="border-t border-dns-mid/10">
+              <td className="p-2">
+                <strong>{milestone.date}</strong>
+                <span className="block text-[10px] text-dns-muted">
+                  {candidate.partnerCount} {it ? 'partner inclusi' : 'Partner einbezogen'}
+                </span>
+              </td>
+              <td className="p-2 text-right tabular-nums">{n(candidate.potentialOperationalKm, language)} km</td>
+              <td className="p-2 text-right tabular-nums">{n(candidate.openedKm, language)} km</td>
+              <td className="p-2 text-right tabular-nums">{n(candidate.artificialSnowKm, language)} km</td>
+              <td className="p-2 text-right tabular-nums">
+                {candidate.potentialOperationalKm > 0 ? n(pct(candidate.openedKm, candidate.potentialOperationalKm), language) + '%' : '—'}
+              </td>
+              <td className="p-2 text-right tabular-nums">
+                {candidate.openedKm > 0 ? `NS ${n(mix.naturalPct, language)}% / KS ${n(mix.artificialPct, language)}%` : '—'}
+              </td>
+              <td className="p-2 text-right tabular-nums font-semibold">
+                {candidate.openedKm > 0 ? n(pct(candidate.artificialSnowKm, candidate.openedKm), language) + '%' : '—'}
+              </td>
+              <td className="p-2 text-right">
+                <div className="flex flex-col items-end gap-1">
+                  <span className="dns-pill">
+                    {valid
+                      ? (it ? 'Validato FAIR' : 'FAIR validiert')
+                      : stale
+                        ? (it ? 'Da rivalidare' : 'Neu validieren')
+                        : (it ? 'Candidate' : 'Kandidat')}
+                  </span>
+                  {canValidateSelectedArea && candidate.openedKm > 0 && !valid && <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void validateCandidate(milestone, candidate)}
+                    className="text-[10px] font-semibold uppercase tracking-[.04em] text-dns-mid underline disabled:opacity-50">
+                    {stale
+                      ? (it ? 'Rivalida' : 'Neu validieren')
+                      : (it ? 'Valida per FAIR' : 'Für FAIR validieren')}
+                  </button>}
+                </div>
+              </td>
+            </tr>;
+          })}</tbody>
+        </table>
+      </div>
+
+      <p className="mt-4 text-xs leading-relaxed text-dns-muted">
+        {it
+          ? 'FAIR rimane completamente indipendente: qui viene validato soltanto il dato di ingresso. Il motore, i pesi e la logica FAIR non vengono modificati.'
+          : 'FAIR bleibt vollständig unabhängig: Hier wird ausschließlich der Eingabewert validiert. FAIR-Motor, Gewichtungen und Logik werden nicht verändert.'}
+      </p>
+    </section>}
   </div>;
 }
