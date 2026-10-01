@@ -1,3 +1,4 @@
+import { HistoricalSeason } from './features/season/HistoricalSeason';
 import { loadPricing, savePricing, persistenceMessage } from './services/seasonalPersistence';
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
@@ -108,6 +109,7 @@ function App() {
   const publicShareId = new URLSearchParams(window.location.search).get('share');
 
   const [language, setLanguage] = useState<Language>('de');
+  const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<ModuleId>('season');
   const [master, setMaster] = useState<DNSCoreMaster | null>(null);
   const [connection, setConnection] = useState<ConnectionState>('loading');
@@ -180,16 +182,16 @@ function App() {
   }, []);
 
   const activeSeason = useMemo(
-    () => master?.seasons.find((season) => season.status === 'active'),
-    [master],
+    () => master?.seasons.find((season) => selectedSeasonId ? season.id === selectedSeasonId : season.status === 'active'),
+    [master, selectedSeasonId],
   );
 
+  const historicalSeason = activeSeason?.id === '2025-26';
+
   useEffect(() => {
+    setSalesRows([]);
     if (!master || !activeSeason) return;
-    setPricingRows((current) =>
-      current.length
-        ? current
-        : createInitialPricingDraft(
+    setPricingRows(createInitialPricingDraft(
             String(activeSeason.id),
             master.reportingAreas.map((area) => area.id),
           ),
@@ -199,7 +201,7 @@ function App() {
   useEffect(() => {
     let active = true;
     setPricingLoaded(false);
-    if (!activeSeason || !authReady || !access?.profile?.active || developmentMode) { setPricingBusy(false); return; }
+    if (historicalSeason || !activeSeason || !authReady || !access?.profile?.active || developmentMode) { setPricingBusy(false); return; }
     setPricingBusy(true);
     setPricingStatus('');
     loadPricing(String(activeSeason.id)).then((saved) => {
@@ -212,6 +214,7 @@ function App() {
   }, [activeSeason?.id, authReady, access?.profile?.id, developmentMode]);
 
   function canManageTariff(row: PricingDraftRow) {
+    if (historicalSeason) return false;
     return developmentMode || access?.isAdmin === true || (access?.grants ?? []).some((grant) =>
       grant.active && grant.permissions.includes('pricing.manage') &&
       ((grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski') ||
@@ -459,20 +462,25 @@ function App() {
                 {activeModule === 'pricing' && !canManagePricing && (
                   <span className="dns-pill">{t.readOnly}</span>
                 )}
-                <span className="dns-pill">
-                  {activeSeason ? `${t.activeSeason} · ${activeSeason.id}` : t.loadingSeason}
-                </span>
+                <label className="dns-pill">
+                  <span className="mr-2">{language === 'it' ? 'Stagione' : 'Saison'}</span>
+                  <select aria-label={language === 'it' ? 'Stagione' : 'Saison'} value={String(activeSeason?.id ?? '')} onChange={(event) => setSelectedSeasonId(event.target.value)}>
+                    {master?.seasons.filter(season => season.status === 'active' || season.id === '2025-26').map(season => <option key={season.id} value={String(season.id)}>{String(season.id)}{season.id === '2025-26' ? (language === 'it' ? ' · Storico' : ' · Historie') : ''}</option>)}
+                  </select>
+                </label>
               </div>
             </div>
           </section>
 
-          {activeModule === 'season' && (
+          {historicalSeason && <HistoricalSeason module={activeModule} access={access} language={language} />}
+
+          {!historicalSeason && activeModule === 'season' && (
             <div key="season" data-dns-reveal>
               <SeasonSetup language={language} season={activeSeason} />
             </div>
           )}
 
-          {activeModule === 'pricing' && master && activeSeason && (
+          {!historicalSeason && activeModule === 'pricing' && master && activeSeason && (
             <div key="pricing" data-dns-reveal>
               <PricingSetup
               language={language}
@@ -489,7 +497,7 @@ function App() {
             </div>
           )}
 
-          {activeModule === 'orders' && master && activeSeason && (
+          {!historicalSeason && activeModule === 'orders' && master && activeSeason && (
             <div key="orders" data-dns-reveal>
               <TicketOrdersTable
               language={language}
@@ -503,7 +511,7 @@ function App() {
             </div>
           )}
 
-          {activeModule === 'kp' && master && (
+          {!historicalSeason && activeModule === 'kp' && master && (
             <div key="kp" data-dns-reveal>
               <ActiveArea master={master} access={access}
                 developmentMode={developmentMode} language={language}
@@ -511,7 +519,7 @@ function App() {
             </div>
           )}
 
-          {activeModule === 'sales' && master && activeSeason && (
+          {!historicalSeason && activeModule === 'sales' && master && activeSeason && (
             <div key="sales" data-dns-reveal>
             <SalesEntry master={master} access={access} developmentMode={developmentMode}
               canWrite={effectivePermissions.has('ticketSales.write')} language={language}
@@ -520,7 +528,7 @@ function App() {
             </div>
           )}
 
-          {!['season', 'pricing', 'orders', 'sales'].includes(activeModule) && (
+          {!historicalSeason && !['season', 'pricing', 'orders', 'sales'].includes(activeModule) && (
             <div key={activeModule} data-dns-reveal className="space-y-5">
               <section className="dns-card p-6">
                 <div className="dns-section-title">{active.label[language]}</div>
