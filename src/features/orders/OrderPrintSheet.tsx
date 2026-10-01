@@ -24,14 +24,18 @@ const copy = {
   de: {
     wristbands: 'Armbänder',
     tickets: 'Wochen- & Saisonkarten',
+    pocketfolders: 'Pocketfolder',
     organization: 'Organisation',
+    delivery: 'Lieferadresse',
     total: 'Gesamt',
     generatedAt: 'Stand',
   },
   it: {
     wristbands: 'Braccialetti',
     tickets: 'Settimanali & stagionali',
+    pocketfolders: 'Pocketfolder',
     organization: 'Organizzazione',
+    delivery: 'Indirizzo consegna',
     total: 'Totale',
     generatedAt: 'Aggiornato',
   },
@@ -83,7 +87,12 @@ export function OrderPrintSheet({
   );
 
   const grandTotal = [...rowTotals.values()].reduce((sum, value) => sum + value, 0);
-  const title = category === 'wristband' ? t.wristbands : t.tickets;
+  const title =
+    category === 'wristband'
+      ? t.wristbands
+      : category === 'pocketfolder'
+        ? t.pocketfolders
+        : t.tickets;
   const timestamp = new Date(generatedAt ?? Date.now()).toLocaleString(
     language === 'de' ? 'de-DE' : 'it-IT',
   );
@@ -137,6 +146,11 @@ export function OrderPrintSheet({
             {items.map((item) => (
               <th key={item.id} className="dns-print-number-header">
                 {item.label[language]}
+                {category === 'pocketfolder' && item.pocketfolder && (
+                  <span className="block text-[7px] font-normal">
+                    {item.pocketfolder.backLanguageOrder}
+                  </span>
+                )}
               </th>
             ))}
             <th className="dns-print-number-header">{t.total}</th>
@@ -145,7 +159,15 @@ export function OrderPrintSheet({
         <tbody>
           {organizations.map((organization) => (
             <tr key={organization.organizationId}>
-              <td><div className="dns-entity-label"><RegionLogos entityType="organization" entityId={organization.organizationId} /><span>{organization.sourceLabel}</span></div></td>
+              <td>
+                <div className="dns-entity-label"><RegionLogos entityType="organization" entityId={organization.organizationId} /><span>{organization.sourceLabel}</span></div>
+                {category === 'pocketfolder' && organization.deliveryLocation && (
+                  <div className="mt-1 text-[7px] leading-tight">
+                    <strong>{t.delivery}:</strong>{' '}
+                    {[organization.deliveryLocation.recipientName, organization.deliveryLocation.addressLine1, organization.deliveryLocation.postalLocality, organization.deliveryLocation.phone].filter(Boolean).join(' · ')}
+                  </div>
+                )}
+              </td>
               {items.map((item) => {
                 const value =
                   quantities.get(`${organization.organizationId}::${item.id}`) ??
