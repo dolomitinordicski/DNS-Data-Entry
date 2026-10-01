@@ -34,6 +34,7 @@ const text = {
     channel: 'Kanal',
     product: 'Produkt',
     areaLabel: 'Gebiet',
+    organizationLabel: 'Organisation',
     noWrite: 'Tarife · explizit in Firebase speichern',
     inherited: 'Nur für bestätigte Ausnahmen. Priorität: Organisation → Gebiet → DNS.',
     selectOrg: 'Organisation wählen',
@@ -53,6 +54,7 @@ const text = {
     channel: 'Canale',
     product: 'Prodotto',
     areaLabel: 'Area',
+    organizationLabel: 'Organizzazione',
     noWrite: 'Tariffe · salvataggio esplicito in Firebase',
     inherited: 'Solo per eccezioni confermate. Priorità: organizzazione → area → DNS.',
     selectOrg: 'Seleziona organizzazione',
@@ -106,6 +108,11 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
     [reportingAreas],
   );
 
+  const organizationById = useMemo(
+    () => Object.fromEntries(organizations.map((organization) => [organization.id, organization])),
+    [organizations],
+  );
+
   function patch(id: string, values: Partial<PricingDraftRow>) {
     if (readOnly) return;
     onChange(rows.map((row) => (row.id === id ? { ...row, ...values } : row)));
@@ -135,12 +142,13 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
     ]);
   }
 
-  const renderRows = (data: PricingDraftRow[], includeArea = false) => (
+  const renderRows = (data: PricingDraftRow[], includeArea = false, includeOrganization = false) => (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[760px] border-collapse">
         <thead>
           <tr className="border-b border-dns-mid/15 text-left text-[9px] uppercase tracking-[.06em] text-dns-mid">
             {includeArea && <th className="px-3 py-2">{t.areaLabel}</th>}
+            {includeOrganization && <th className="px-3 py-2">{t.organizationLabel}</th>}
             <th className="px-3 py-2">{t.product}</th>
             <th className="px-3 py-2">{t.channel}</th>
             <th className="px-3 py-2">{t.period}</th>
@@ -154,6 +162,11 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
               {includeArea && (
                 <td className="px-3 py-2 text-[11px] font-semibold">
                   <div className="dns-entity-label"><RegionLogos entityType="reportingArea" entityId={row.scopeId} /><span>{String(areaById[row.scopeId]?.canonicalName ?? row.scopeId)}</span></div>
+                </td>
+              )}
+              {includeOrganization && (
+                <td className="px-3 py-2 text-[11px] font-semibold">
+                  <div className="dns-entity-label"><RegionLogos entityType="organization" entityId={row.scopeId} /><span>{String(organizationById[row.scopeId]?.canonicalName ?? row.scopeId)}</span></div>
                 </td>
               )}
               <td className="px-3 py-2 text-[11px] font-semibold">
@@ -251,6 +264,8 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
         <p className="mt-2 font-alt text-[11px] text-dns-muted">{t.inherited}</p>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_1fr_auto]">
+          <div className="flex min-w-0 items-center gap-2">
+            {overrideOrg ? <RegionLogos entityType="organization" entityId={overrideOrg} /> : null}
           <select
             value={overrideOrg}
             disabled={readOnly}
@@ -264,6 +279,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
               </option>
             ))}
           </select>
+          </div>
           <select
             value={overrideProduct}
             disabled={readOnly}
@@ -288,7 +304,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
         </div>
 
         <div className="mt-4">
-          {overrideRows.length ? renderRows(overrideRows) : (
+          {overrideRows.length ? renderRows(overrideRows, false, true) : (
             <div className="rounded-lg border border-dashed border-dns-mid/20 bg-dns-bg p-4 font-alt text-[11px] text-dns-muted">
               {t.empty}
             </div>
