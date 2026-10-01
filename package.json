@@ -12,7 +12,7 @@
     "firebase": "^12.3.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "@dolomitinordicski/dns-shared-data": "github:dolomitinordicski/dns-shared-data#90bb9689a290a20e1231f68e0a4cf055d6dcb3ed"
+    "@dolomitinordicski/dns-shared-data": "github:dolomitinordicski/dns-shared-data#fa954bd22e313119f0355831beb6dc813499cf6a"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.13",
