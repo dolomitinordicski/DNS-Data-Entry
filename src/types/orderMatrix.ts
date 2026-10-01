@@ -53,10 +53,13 @@ export interface OrderMatrixDraft {
   cells: OrderMatrixCell[];
 }
 
+export type OrderStatus = 'draft' | 'submitted' | 'confirmed' | 'fulfilled' | 'cancelled';
+
 export interface PersistedOrderMatrix {
   draft: OrderMatrixDraft;
   persistedOrderIds: Set<string>;
   persistedLineIds: Set<string>;
+  orderStatuses: Record<string, OrderStatus>;
 }
 
 
