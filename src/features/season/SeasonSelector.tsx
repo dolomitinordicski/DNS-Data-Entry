@@ -128,7 +128,7 @@ export function SeasonSelector({
             {seasons.map((season, index) => {
               const id = String(season.id);
               const isSelected = id === selectedSeasonId;
-              const isHistorical = id === '2025-26';
+              const isHistorical = ['2024-25', '2025-26'].includes(id);
               const badge = isHistorical ? t.history : season.status === 'active' ? t.active : '';
               return (
                 <button
