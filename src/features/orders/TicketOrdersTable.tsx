@@ -15,6 +15,7 @@ import {
   revokePublicOrderShare,
 } from '../../services/publicOrderShares';
 import { OrderPrintSheet } from './OrderPrintSheet';
+import { WireIcon } from '../../components/WireIcon';
 import type { DNSAccessContext } from '../../types/access';
 import type { CanonicalRecord } from '../../types/master';
 import type {
@@ -470,8 +471,9 @@ export function TicketOrdersTable({
               type="button"
               onClick={() => void publishShare()}
               disabled={sharing || dirty[category]}
-              className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white disabled:opacity-40"
+              className="inline-flex items-center gap-2 rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white disabled:opacity-40"
             >
+              <WireIcon name="share" size={14} />
               {shareId ? t.updateShare : t.share}
             </button>
             {shareUrl && (
@@ -512,8 +514,9 @@ export function TicketOrdersTable({
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="rounded-md border border-dns-mid/25 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
+                className="inline-flex items-center gap-2 rounded-md border border-dns-mid/25 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
               >
+                <WireIcon name="print" size={14} />
                 {t.print}
               </button>
               <span className="dns-pill">{t.orderedVsSold}</span>
