@@ -15,6 +15,7 @@ interface Props {
   onChange: (rows: PricingDraftRow[]) => void;
   readOnly?: boolean;
   onSave: () => void;
+  canEditRow: (row: PricingDraftRow) => boolean;
   saving: boolean;
   canSave: boolean;
   saveStatus: string;
@@ -88,7 +89,7 @@ function PriceInput({
   );
 }
 
-export function PricingSetup({ language, seasonId, reportingAreas, organizations, rows, onChange, readOnly = false, onSave, saving, canSave, saveStatus }: Props) {
+export function PricingSetup({ language, seasonId, reportingAreas, organizations, rows, onChange, readOnly = false, onSave, saving, canSave, saveStatus, canEditRow }: Props) {
   const t = text[language];
   const [selectedArea, setSelectedArea] = useState(reportingAreas[0]?.id ?? '');
   const [overrideOrg, setOverrideOrg] = useState('');
@@ -168,7 +169,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
                 <div className="flex justify-end">
                   <PriceInput
                     value={row.unitPrice}
-                    disabled={readOnly}
+                    disabled={readOnly || !canEditRow(row)}
                     onChange={(value) =>
                       patch(row.id, {
                         unitPrice: value,
@@ -185,7 +186,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
                 <div className="flex justify-end">
                   <PriceInput
                     value={row.settlementUnitPrice}
-                    disabled={readOnly}
+                    disabled={readOnly || !canEditRow(row)}
                     onChange={(value) => patch(row.id, { settlementUnitPrice: value })}
                   />
                 </div>

@@ -211,11 +211,19 @@ function App() {
     return () => { active = false; };
   }, [activeSeason?.id, authReady, access?.profile?.id, developmentMode]);
 
+  function canManageTariff(row: PricingDraftRow) {
+    return developmentMode || access?.isAdmin === true || (access?.grants ?? []).some((grant) =>
+      grant.active && grant.permissions.includes('pricing.manage') &&
+      ((grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski') ||
+        (grant.scopeType === row.scopeType && grant.scopeId === row.scopeId)),
+    );
+  }
+
   async function persistPricing() {
     setPricingBusy(true);
     setPricingStatus('');
     try {
-      const saved = await savePricing(pricingRows);
+      const saved = await savePricing(pricingRows.filter(canManageTariff));
       setPricingRows((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
       setPricingStatus(language === 'de' ? 'In Firebase gespeichert' : 'Salvato in Firebase');
     } catch (error) {
@@ -476,7 +484,7 @@ function App() {
               readOnly={!canManagePricing || pricingBusy}
               onSave={persistPricing} saving={pricingBusy}
               canSave={canManagePricing && pricingLoaded && !developmentMode}
-              saveStatus={pricingStatus}
+              saveStatus={pricingStatus} canEditRow={canManageTariff}
             />
             </div>
           )}
