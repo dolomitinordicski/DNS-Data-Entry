@@ -6,7 +6,7 @@ export const DNS_SHARED_BRAND = {
    * Keep the filename contract stable; the PNGs will be uploaded once.
    */
   webLogoUrl:
-    'https://raw.githubusercontent.com/dolomitinordicski/dns-shared-data/release/v1.1.0/brand/logo-web.png',
+    'https://raw.githubusercontent.com/dolomitinordicski/dns-shared-data/release/v1.1.1/brand/logo-web.png',
   printLogoUrl:
-    'https://raw.githubusercontent.com/dolomitinordicski/dns-shared-data/release/v1.1.0/brand/logo.png',
+    'https://raw.githubusercontent.com/dolomitinordicski/dns-shared-data/release/v1.1.1/brand/logo.png',
 } as const;
