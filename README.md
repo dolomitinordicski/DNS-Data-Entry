@@ -13,15 +13,14 @@ Rules and reproducible emulator tests live in `dns-shared-data` (`npm run test:r
 
 ## Shared Foundation
 
-DNS Data Entry consumes the shared DNS Foundation from `@dolomitinordicski/dns-shared-data`.
+DNS Data Entry consumes the immutable `foundation-v1.2.0` release of `@dolomitinordicski/dns-shared-data`. The Foundation runtime initializes before React renders and supplies the design tokens, shared UI primitives, navigation, accessibility, and print runtime.
 
-Current rollout:
-- DNS Design System v1.10 navigation pattern, including translucent sticky navigation and scroll progress;
-- immediate local Design System fallback for stable first paint, with DNS_Core as runtime enhancement;
-- shared Data Contracts catalog with module-to-contract mappings;
-- canonical regional assets and shared operational context styling.
+DNS Core remains the source for operational master data, permissions, organization and area context, and Firestore-backed records. Order catalogs, forms, delivery locations, and persisted KP data continue to use the existing Core services and collections. Foundation supplies only the canonical seasonal setup defaults where Core configuration is absent.
+
+Data Entry keeps its local order, pricing, sales, KP, and permissions workflows, including seasonal navigation and its specialized print layout. Those application features are unchanged by this migration.
 
 The application exposes the active shared Data Contract IDs on the authorized shell for diagnostics and migration checks.
+
 
 
 ### Accessibility v1
