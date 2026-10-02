@@ -431,7 +431,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
         <label className="text-xs font-semibold text-dns-muted">
           {it ? 'Area' : 'Region'}
           <select value={selectedArea?.id ?? ''} onChange={(event) => setSelectedAreaId(event.target.value)}
-            className="dns-context-selector mt-1 w-full px-3 py-2 text-[11px]">
+            className="dns-select dns-context-select mt-1 w-full px-3 py-2 text-[11px]">
             {visibleAreas.map((area) =>
               <option key={area.id} value={area.id}>{String(area.canonicalName ?? area.id)}</option>)}
           </select>
@@ -439,7 +439,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
         <label className="text-xs font-semibold text-dns-muted">
           Partner
           <select value={selectedOrganization?.id ?? ''} onChange={(event) => setSelectedOrgId(event.target.value)}
-            className="dns-context-selector mt-1 w-full px-3 py-2 text-[11px]">
+            className="dns-select dns-context-select mt-1 w-full px-3 py-2 text-[11px]">
             {areaOrganizations.map((organization) =>
               <option key={organization.id} value={organization.id}>{String(organization.canonicalName ?? organization.id)}</option>)}
           </select>
