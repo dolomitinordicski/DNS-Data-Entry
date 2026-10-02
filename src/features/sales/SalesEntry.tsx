@@ -89,7 +89,7 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
   return <section className="dns-card p-5 md:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="dns-section-title">{t.title}</h2><span className="dns-pill">{t.draft}</span></div>
     <div className="mt-3 flex flex-wrap items-center gap-3">
-      <button type="button" disabled={!editable || !pricingLoaded || developmentMode || !cells.some((cell) => cell.valid && !cell.draft.pricing) || cells.some((cell) => (cell.draft.quantity !== null || cell.draft.amountOverride !== null) && !cell.valid)} onClick={persist} className="rounded-md bg-dns-deep px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-40">
+      <button type="button" disabled={!editable || !pricingLoaded || developmentMode || !cells.some((cell) => cell.valid && !cell.draft.pricing) || cells.some((cell) => (cell.draft.quantity !== null || cell.draft.amountOverride !== null) && !cell.valid)} onClick={persist} className="dns-button disabled:opacity-40" data-variant="primary">
         {busy ? (language === 'de' ? 'Laden…' : 'Caricamento…') : (language === 'de' ? 'In Firebase speichern' : 'Salva in Firebase')}
       </button>
       <span role="status" className="font-alt text-[11px]">{status}</span>
@@ -98,8 +98,8 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
     <p className="mt-2 font-alt text-[11px] text-dns-muted">{t.warning}</p>
     {!org ? <p className="mt-4">{t.empty}</p> : <>
       <div className="mt-5 grid gap-3 md:grid-cols-4">
-        <label className="text-[11px]">{t.organization}<select disabled={busy} className="dns-context-selector w-full px-2 py-2 font-alt text-[11px]" value={org.id} onChange={(event) => setOrgId(event.target.value)}>{organizations.map((item) => <option key={item.id} value={item.id}>{String(item.canonicalName ?? item.id)}</option>)}</select></label>
-        <label className="text-[11px]">{t.area}<select disabled={busy} className="dns-context-selector w-full px-2 py-2 font-alt text-[11px]" value={areaId} onChange={(event) => setSelectedArea(event.target.value)}>{areaIds.map((id) => <option key={id} value={id}>{String(master.reportingAreas.find((area) => area.id === id)?.canonicalName ?? id)}</option>)}</select></label>
+        <label className="text-[11px]">{t.organization}<select disabled={busy} className="dns-select dns-context-select w-full px-2 py-2 font-alt text-[11px]" value={org.id} onChange={(event) => setOrgId(event.target.value)}>{organizations.map((item) => <option key={item.id} value={item.id}>{String(item.canonicalName ?? item.id)}</option>)}</select></label>
+        <label className="text-[11px]">{t.area}<select disabled={busy} className="dns-select dns-context-select w-full px-2 py-2 font-alt text-[11px]" value={areaId} onChange={(event) => setSelectedArea(event.target.value)}>{areaIds.map((id) => <option key={id} value={id}>{String(master.reportingAreas.find((area) => area.id === id)?.canonicalName ?? id)}</option>)}</select></label>
         <label className="text-[11px]">{language === 'de' ? 'Kanal' : 'Canale'}<select disabled={busy} className={inputClass} value={channel} onChange={(event) => setChannel(event.target.value as SalesChannel)}>{Object.entries(channelLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
         <label className="text-[11px]">{language === 'de' ? 'Periode' : 'Periodo'}<select disabled={busy} className={inputClass} value={period} onChange={(event) => setPeriod(event.target.value as SalesPeriod)}>{Object.entries(periodLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
       </div>
