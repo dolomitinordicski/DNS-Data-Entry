@@ -30,8 +30,10 @@ import {
 } from './services/auth';
 import { loadDNSCoreMaster } from './services/dnsCore';
 import {
+  getDNSDataEntryLanguage,
   initDNSDataEntryFoundation,
-  syncDNSDataEntryFoundationLanguage,
+  setDNSDataEntryLanguage,
+  subscribeDNSDataEntryLanguage,
 } from './services/capabilityRuntime';
 import { formatDNSCoreHeaderStatus } from '@dolomitinordicski/dns-shared-data/ui/header-status';
 import type { DNSAccessContext, DNSPermission } from './types/access';
@@ -103,7 +105,7 @@ const copy = {
 function App() {
   const publicShareId = new URLSearchParams(window.location.search).get('share');
 
-  const [language, setLanguage] = useState<Language>('de');
+  const [language, setLanguage] = useState<Language>(() => getDNSDataEntryLanguage());
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<ModuleId>('season');
   const [master, setMaster] = useState<DNSCoreMaster | null>(null);
@@ -143,13 +145,12 @@ function App() {
       (effectiveAccess.isAdmin || effectiveAccess.permissions.size > 0));
 
   useEffect(() => {
-    const foundation = initDNSDataEntryFoundation(language);
+    const foundation = initDNSDataEntryFoundation();
+    setLanguage(foundation.getLanguage());
+    const unsubscribe = subscribeDNSDataEntryLanguage(setLanguage);
     foundation.refresh();
+    return unsubscribe;
   }, []);
-
-  useEffect(() => {
-    syncDNSDataEntryFoundationLanguage(language);
-  }, [language]);
 
   useEffect(() => {
     return subscribeToAuth((user) => {
@@ -167,7 +168,7 @@ function App() {
         .then((context) => {
           setAccess(context);
           if (context.profile?.preferredLanguage === 'de' || context.profile?.preferredLanguage === 'it') {
-            setLanguage(context.profile.preferredLanguage);
+            setDNSDataEntryLanguage(context.profile.preferredLanguage);
           }
         })
         .catch((error) => {
@@ -262,7 +263,7 @@ function App() {
   }, [allowedModules, activeModule]);
 
   if (publicShareId) {
-    return <PublicOrderSharePage shareId={publicShareId} />;
+    return <PublicOrderSharePage shareId={publicShareId} language={language} onLanguageChange={setDNSDataEntryLanguage} />;
   }
 
   if (!authReady && !developmentMode) {
@@ -277,7 +278,7 @@ function App() {
     return (
       <LoginScreen
         language={language}
-        onLanguageChange={setLanguage}
+        onLanguageChange={setDNSDataEntryLanguage}
         onDevelopmentMode={() => {
           sessionStorage.setItem('dns-development-mode', '1');
           sessionStorage.setItem('dns-dev-persona', 'admin');
@@ -389,7 +390,7 @@ function App() {
                 <button
                   key={lang}
                   type="button"
-                  onClick={() => setLanguage(lang)}
+                  onClick={() => setDNSDataEntryLanguage(lang)}
                   data-dns-press
                   className={[
                     'border-0 border-b-2 bg-transparent px-1 py-1 text-white',
