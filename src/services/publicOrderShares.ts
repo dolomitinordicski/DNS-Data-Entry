@@ -62,6 +62,7 @@ export interface PublicOrderShareDocument {
       quantity: number | null;
     }>;
     totalQuantity: number;
+    ticketNumberingStart?: number;
   };
 }
 
@@ -115,6 +116,7 @@ export async function getActivePublicShare(
 
 export async function publishPublicOrderShare(
   draft: OrderMatrixDraft,
+  options?: { ticketNumberingStart?: number },
 ): Promise<PublicOrderShareDocument> {
   const existing = await getActivePublicShare(draft.seasonId, draft.category);
 
@@ -173,6 +175,11 @@ export async function publishPublicOrderShare(
         quantity: cell.quantity,
       })),
       totalQuantity,
+      ...(draft.category === 'ticket' &&
+      Number.isInteger(options?.ticketNumberingStart) &&
+      (options?.ticketNumberingStart ?? 0) > 0
+        ? { ticketNumberingStart: options!.ticketNumberingStart }
+        : {}),
     },
   };
 
