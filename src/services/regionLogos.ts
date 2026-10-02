@@ -1,3 +1,4 @@
+import { DNS_FOUNDATION_RELEASE_VERSION } from '@dolomitinordicski/dns-shared-data/release';
 import {
   findRegionLogosForEntity,
   type DNSBrandEntityType,
@@ -8,7 +9,7 @@ export type LogoEntityType = DNSBrandEntityType;
 export type RegionLogo = DNSRegionLogoAsset;
 
 export const REGION_LOGO_MANIFEST_URL =
-  'https://raw.githubusercontent.com/dolomitinordicski/dns-shared-data/release/v1.1.2/brand/regions/manifest.json';
+  `https://raw.githubusercontent.com/dolomitinordicski/dns-shared-data/foundation-v${DNS_FOUNDATION_RELEASE_VERSION}/brand/regions/manifest.json`;
 
 let manifestPromise: Promise<RegionLogo[]> | undefined;
 
