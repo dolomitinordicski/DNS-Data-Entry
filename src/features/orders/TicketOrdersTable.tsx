@@ -761,7 +761,7 @@ export function TicketOrdersTable({
               <button
                 type="button"
                 onClick={() => void dnsDataEntryCapabilities.run('print')}
-                className="inline-flex items-center gap-2 rounded-md border border-dns-mid/25 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
+                className="dns-button" data-variant="secondary"
               >
                 <WireIcon name="print" size={14} />
                 {t.print}
@@ -1056,7 +1056,7 @@ export function TicketOrdersTable({
                                 : Math.max(0, Math.trunc(Number(event.target.value))),
                             )
                           }
-                          className="w-[92px] rounded-md border border-dns-mid/15 bg-white px-2 py-1.5 text-right font-alt text-[11px] text-dns-deep outline-none focus:border-dns-mid disabled:bg-transparent disabled:text-dns-muted"
+                          className="dns-input w-[92px] py-1.5 text-right font-alt text-[11px]"
                           aria-label={`${organization.sourceLabel} · ${item.label[language]}`}
                         />
                       </td>
@@ -1112,7 +1112,7 @@ export function TicketOrdersTable({
                       Math.max(1, Math.trunc(Number(event.target.value) || 1)),
                     )
                   }
-                  className="mt-2 w-full rounded-md border border-dns-mid/25 bg-white px-3 py-2 font-alt text-[13px] font-semibold tabular-nums text-dns-deep outline-none focus:border-dns-mid"
+                  className="dns-input mt-2 font-alt text-[13px] font-semibold tabular-nums"
                 />
               </label>
             </div>
@@ -1201,7 +1201,7 @@ export function TicketOrdersTable({
                 <button
                   type="button"
                   onClick={() => void copyShare()}
-                  className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
+                  className="dns-button" data-variant="secondary"
                 >
                   {t.copyShare}
                 </button>
@@ -1209,7 +1209,7 @@ export function TicketOrdersTable({
                   type="button"
                   onClick={() => void revokeShare()}
                   disabled={sharing}
-                  className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-mid disabled:opacity-40"
+                  className="dns-button disabled:opacity-40" data-variant="danger"
                 >
                   {t.revokeShare}
                 </button>
