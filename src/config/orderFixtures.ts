@@ -11,7 +11,7 @@ import type { OrderMatrixCategory, OrderMatrixDraft } from '../types/orderMatrix
 
 function sourceDraft(
   category: OrderMatrixCategory,
-  items: readonly { id: string; category: string; code: string; label: { de: string; it: string; en?: string }; displayOrder: number; [key: string]: unknown }[],
+  items: readonly { id: string; category: string; code: string; label: { de: string; it: string; en?: string }; displayOrder: number; }[],
   organizations: readonly { organizationId: string; sourceLabel: string; reportingAreaId?: string; defaultDeliveryLocationId?: string }[],
   sourceCells: readonly { organizationId: string; catalogItemId: string; quantity: number | null }[],
 ): OrderMatrixDraft {
