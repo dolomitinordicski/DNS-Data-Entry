@@ -55,7 +55,7 @@ export function initDNSDataEntryFoundation(language: Language = 'de') {
     foundation = initDNSFoundation({
       language,
       shellProfile: 'operational',
-      capabilities: ['export.csv', 'export.xlsx', 'print'],
+      capabilities: ['export.csv', 'export.xlsx', 'clipboard.copy', 'print'],
       capabilityAdapters: [csvAdapter, xlsxAdapter],
       accessibility: {
         enabled: true,
@@ -75,7 +75,7 @@ export function syncDNSDataEntryFoundationLanguage(language: Language) {
 }
 
 export const dnsDataEntryCapabilities = {
-  run<T = unknown>(capability: 'export.csv' | 'export.xlsx' | 'print', input?: unknown) {
+  run<T = unknown>(capability: 'export.csv' | 'export.xlsx' | 'clipboard.copy' | 'print', input?: unknown) {
     return initDNSDataEntryFoundation().capabilityRuntime.run<T>(capability, input);
   },
 };
