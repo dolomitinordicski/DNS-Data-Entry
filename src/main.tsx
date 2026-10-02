@@ -1,10 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { initDNSFoundation } from '@dolomitinordicski/dns-shared-data';
+import { initDNSDataEntryFoundation } from './services/capabilityRuntime';
 import './styles/index.css';
 
-initDNSFoundation({ shellProfile: 'operational' });
+initDNSDataEntryFoundation();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
