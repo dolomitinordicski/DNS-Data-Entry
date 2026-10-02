@@ -646,16 +646,18 @@ export function TicketOrdersTable({
 
   if (loading && !draft) {
     return (
-      <section className="dns-card p-6">
-        <div className="dns-kicker">{t.loading}</div>
+      <section className="dns-state" data-state="loading" aria-live="polite">
+        <div className="dns-state-icon" aria-hidden="true">···</div>
+        <div className="dns-state-title">{t.loading}</div>
       </section>
     );
   }
 
   if (!draft) {
     return (
-      <section className="dns-card p-6">
-        <div className="dns-section-title">{t.error}</div>
+      <section className="dns-state" data-state="error" role="alert">
+        <div className="dns-state-icon" aria-hidden="true">!</div>
+        <div className="dns-state-title">{t.error}</div>
       </section>
     );
   }
@@ -952,7 +954,7 @@ export function TicketOrdersTable({
                     type="button"
                     onClick={() => void saveCurrent()}
                     disabled={!dirty[category] || saving}
-                    className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white transition hover:bg-dns-mid disabled:cursor-not-allowed disabled:opacity-40"
+                    className="dns-button disabled:cursor-not-allowed disabled:opacity-40" data-variant="primary"
                   >
                     {saving ? t.saving : t.save}
                   </button>
@@ -963,8 +965,8 @@ export function TicketOrdersTable({
         </div>
 
         {error && (
-          <div className="border-b border-red-200 bg-red-50 px-5 py-3 font-alt text-[11px] text-red-800">
-            {t.error}
+          <div className="dns-alert rounded-none border-x-0 border-t-0" data-variant="error" role="alert">
+            <div className="dns-alert-body">{t.error}</div>
           </div>
         )}
 
