@@ -85,7 +85,7 @@ function PriceInput({
         onChange={(event) =>
           onChange(event.target.value === '' ? null : Number(event.target.value))
         }
-        className="w-[96px] rounded-md border border-dns-mid/20 bg-white py-1.5 pl-6 pr-2 text-right font-alt text-[11px] text-dns-deep outline-none focus:border-dns-mid disabled:bg-dns-bg disabled:text-dns-muted"
+        className="dns-input w-[96px] py-1.5 pl-6 pr-2 text-right font-alt text-[11px]"
       />
     </div>
   );
@@ -144,7 +144,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
 
   const renderRows = (data: PricingDraftRow[], includeArea = false, includeOrganization = false) => (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[760px] border-collapse">
+      <table className="dns-table min-w-[760px]">
         <thead>
           <tr className="border-b border-dns-mid/15 text-left text-[9px] uppercase tracking-[.06em] text-dns-mid">
             {includeArea && <th className="px-3 py-2">{t.areaLabel}</th>}
