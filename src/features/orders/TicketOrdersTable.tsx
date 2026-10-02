@@ -1,5 +1,9 @@
 import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useMemo, useState } from 'react';
+import {
+  ORDER_SOURCE_TOTALS_2026_27,
+  POCKETFOLDER_SOURCE_TOTALS_2026_27,
+} from '@dolomitinordicski/dns-shared-data';
 import { DEV_AREA_TEST_DELIVERY_LOCATIONS } from '../../config/devAccess';
 import {
   cloneOrderDraft,
@@ -152,9 +156,9 @@ const copy = {
 } as const;
 
 const SOURCE_TOTALS: Record<OrderMatrixCategory, number> = {
-  wristband: 55700,
-  ticket: 24415,
-  pocketfolder: 25150,
+  wristband: ORDER_SOURCE_TOTALS_2026_27.wristband,
+  ticket: ORDER_SOURCE_TOTALS_2026_27.ticket,
+  pocketfolder: POCKETFOLDER_SOURCE_TOTALS_2026_27.printerTotal,
 };
 
 function storageKey(category: OrderMatrixCategory, devAreaTest = false) {
@@ -1017,7 +1021,7 @@ export function TicketOrdersTable({
                   <td
                     className={[
                       'sticky left-0 z-[5] px-4 py-2.5 text-[11px] font-semibold text-dns-deep',
-                      rowIndex % 2 ? 'bg-[#f7fafb]' : 'bg-white',
+                      rowIndex % 2 ? 'bg-dns-bg' : 'bg-white',
                     ].join(' ')}
                   >
                     <div className="dns-entity-label"><RegionLogos entityType="organization" entityId={organization.organizationId} /><span>{organization.sourceLabel}</span></div>
@@ -1138,7 +1142,7 @@ export function TicketOrdersTable({
                     <td
                       className={[
                         'sticky left-0 z-[5] px-4 py-2.5 text-[11px] font-semibold text-dns-deep',
-                        rowIndex % 2 ? 'bg-[#f7fafb]' : 'bg-white',
+                        rowIndex % 2 ? 'bg-dns-bg' : 'bg-white',
                       ].join(' ')}
                     >
                       {organization.sourceLabel}
