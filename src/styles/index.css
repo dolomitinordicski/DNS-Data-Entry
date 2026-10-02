@@ -1,14 +1,24 @@
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap');
 @import "tailwindcss";
 
-@theme {
-  --color-dns-deep: #0D4D5E;
-  --color-dns-mid: #417483;
-  --color-dns-light: #AAD0D1;
-  --color-dns-bg: #F4F8F9;
-  --color-dns-muted: #718990;
-  --font-display: "Be Vietnam Pro", sans-serif;
-  --font-alt: "Roboto", sans-serif;
+@theme inline {
+  --color-dns-deep: var(--dns-foundation-deep);
+  --color-dns-mid: var(--dns-foundation-mid);
+  --color-dns-light: var(--dns-foundation-light);
+  --color-dns-bg: var(--dns-foundation-bg);
+  --color-dns-muted: var(--dns-foundation-muted);
+  --font-display: var(--dns-foundation-font-display);
+  --font-alt: var(--dns-foundation-font-alt);
+}
+
+:root {
+  --dns-foundation-deep: var(--color-dns-deep);
+  --dns-foundation-mid: var(--color-dns-mid);
+  --dns-foundation-light: var(--color-dns-light);
+  --dns-foundation-bg: var(--color-dns-bg);
+  --dns-foundation-muted: var(--color-dns-muted);
+  --dns-foundation-font-display: var(--font-display);
+  --dns-foundation-font-alt: var(--font-alt);
 }
 
 @layer base {
@@ -23,25 +33,6 @@
 }
 
 @layer components {
-  .dns-card {
-    background: var(--color-dns-surface, #fff);
-    border-radius: var(--dns-card-radius, 10px);
-    box-shadow: var(--dns-card-shadow, 0 1px 4px rgba(13,77,94,.07));
-  }
-
-  .dns-section-title {
-    @apply text-[11px] font-bold uppercase tracking-[.07em] text-dns-deep;
-  }
-
-  .dns-kicker {
-    @apply text-[10px] font-semibold uppercase tracking-[.08em] text-dns-mid;
-  }
-
-  .dns-pill {
-    @apply inline-flex items-center gap-2 rounded-full border border-dns-mid/20 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[.05em] text-dns-mid;
-  }
-
-
   .dns-tab-season-wrap {
     flex: 0 0 auto;
     margin-right: .65rem;
@@ -52,32 +43,32 @@
     align-items: center;
     gap: .3rem;
     padding: .25rem .5rem .25rem .6rem;
-    border: 1px solid var(--dns-context-selected-border, #417483);
+    border: 1px solid var(--dns-context-selected-border, var(--color-dns-mid));
     border-radius: var(--dns-control-radius, 6px);
-    background: var(--dns-context-selected-bg, #AAD0D1);
+    background: var(--dns-context-selected-bg, var(--color-dns-light));
     cursor: pointer;
     font-size: 9px;
     font-weight: 700;
     line-height: 1.2;
-    color: var(--dns-context-selected-text, #0D4D5E);
+    color: var(--dns-context-selected-text, var(--color-dns-deep));
     letter-spacing: .08em;
     text-transform: uppercase;
     white-space: nowrap;
     transition: background var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease), border-color var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease), transform var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease);
   }
 
-  .dns-season-prefix { color: var(--color-dns-mid, #417483); }
-  .dns-season-current { color: var(--color-dns-deep, #0D4D5E); font-size: 10px; letter-spacing: .04em; }
+  .dns-season-prefix { color: var(--color-dns-mid, var(--color-dns-mid)); }
+  .dns-season-current { color: var(--color-dns-deep, var(--color-dns-deep)); font-size: 10px; letter-spacing: .04em; }
 
   .dns-tab-season:hover {
-    border-color: var(--dns-context-hover-border, rgba(65,116,131,.35));
-    background: var(--dns-context-hover-bg, rgba(170,208,209,.35));
+    border-color: var(--dns-context-hover-border, color-mix(in srgb, var(--color-dns-mid) 35%, transparent));
+    background: var(--dns-context-hover-bg, color-mix(in srgb, var(--color-dns-light) 35%, transparent));
   }
 
   .dns-tab-season:active { transform: translateY(1px); }
 
   .dns-tab-season:focus-visible {
-    outline: var(--dns-context-focus-width, 2px) solid var(--dns-context-focus-color, #417483);
+    outline: var(--dns-context-focus-width, 2px) solid var(--dns-context-focus-color, var(--color-dns-mid));
     outline-offset: var(--dns-context-focus-offset, 2px);
   }
 
@@ -85,8 +76,8 @@
     width: .36rem;
     height: .36rem;
     margin: -.13rem .04rem 0 .12rem;
-    border-right: 1.5px solid var(--color-dns-mid, #417483);
-    border-bottom: 1.5px solid var(--color-dns-mid, #417483);
+    border-right: 1.5px solid var(--color-dns-mid, var(--color-dns-mid));
+    border-bottom: 1.5px solid var(--color-dns-mid, var(--color-dns-mid));
     transform: rotate(45deg);
     pointer-events: none;
     transition: transform var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease);
@@ -98,11 +89,11 @@
     position: fixed;
     z-index: 1000;
     overflow: hidden;
-    border: 1px solid rgba(13,77,94,.13);
+    border: 1px solid color-mix(in srgb, var(--color-dns-deep) 13%, transparent);
     border-radius: 10px;
-    background: #fff;
-    color: var(--color-dns-deep, #0D4D5E);
-    box-shadow: 0 14px 38px rgba(13,77,94,.2), 0 2px 6px rgba(13,77,94,.08);
+    background: var(--color-dns-surface);
+    color: var(--color-dns-deep, var(--color-dns-deep));
+    box-shadow: var(--dns-floating-shadow);
     animation: dns-season-menu-in 160ms ease both;
   }
 
@@ -111,11 +102,11 @@
     flex-direction: column;
     gap: 3px;
     padding: 12px 13px 10px;
-    border-bottom: 1px solid rgba(65,116,131,.13);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-dns-mid) 13%, transparent);
   }
 
   .dns-season-menu-eyebrow {
-    color: var(--color-dns-mid, #417483);
+    color: var(--color-dns-mid, var(--color-dns-mid));
     font-size: 8px;
     font-weight: 700;
     letter-spacing: .1em;
@@ -141,8 +132,8 @@
     padding: 8px 9px;
     border: 1px solid transparent;
     border-radius: 7px;
-    background: #fff;
-    color: var(--color-dns-deep, #0D4D5E);
+    background: var(--color-dns-surface);
+    color: var(--color-dns-deep, var(--color-dns-deep));
     cursor: pointer;
     text-align: left;
     transition: background var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease), border-color var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease), transform var(--dns-motion-fast, 200ms) var(--dns-motion-easing, ease);
@@ -150,16 +141,16 @@
 
   .dns-season-option:hover,
   .dns-season-option:focus-visible {
-    border-color: rgba(65,116,131,.25);
-    background: var(--color-dns-bg, #F4F8F9);
+    border-color: color-mix(in srgb, var(--color-dns-mid) 25%, transparent);
+    background: var(--color-dns-bg, var(--color-dns-bg));
     outline: none;
   }
 
   .dns-season-option:active { transform: scale(.99); }
   .dns-season-option.is-selected {
-    border-color: var(--dns-context-selected-border, #417483);
-    background: var(--dns-context-selected-bg, #AAD0D1);
-    color: var(--dns-context-selected-text, #0D4D5E);
+    border-color: var(--dns-context-selected-border, var(--color-dns-mid));
+    background: var(--dns-context-selected-bg, var(--color-dns-light));
+    color: var(--dns-context-selected-text, var(--color-dns-deep));
   }
 
   .dns-season-option-mark {
@@ -168,31 +159,31 @@
     height: 30px;
     flex: 0 0 auto;
     place-items: center;
-    border: 1px solid rgba(65,116,131,.16);
+    border: 1px solid color-mix(in srgb, var(--color-dns-mid) 16%, transparent);
     border-radius: 50%;
-    background: var(--color-dns-bg, #F4F8F9);
-    color: var(--color-dns-mid, #417483);
+    background: var(--color-dns-bg, var(--color-dns-bg));
+    color: var(--color-dns-mid, var(--color-dns-mid));
     font-size: 15px;
     line-height: 1;
   }
 
   .dns-season-option-copy { display: flex; min-width: 0; flex: 1 1 auto; flex-direction: column; gap: 2px; }
   .dns-season-option-year { font-size: 14px; font-weight: 700; letter-spacing: .01em; line-height: 1.1; }
-  .dns-season-option-caption { color: var(--color-dns-muted, #718990); font-family: var(--font-alt, Roboto, sans-serif); font-size: 9px; line-height: 1.15; }
+  .dns-season-option-caption { color: var(--color-dns-muted, var(--color-dns-muted)); font-family: var(--font-alt, Roboto, sans-serif); font-size: 9px; line-height: 1.15; }
 
   .dns-season-badge {
     padding: 4px 6px;
     border-radius: 999px;
-    background: rgba(65,116,131,.1);
-    color: var(--color-dns-mid, #417483);
+    background: color-mix(in srgb, var(--color-dns-mid) 10%, transparent);
+    color: var(--color-dns-mid, var(--color-dns-mid));
     font-size: 8px;
     font-weight: 700;
     letter-spacing: .04em;
     text-transform: uppercase;
   }
 
-  .dns-season-badge.is-history { background: rgba(13,77,94,.07); color: var(--color-dns-muted, #718990); }
-  .dns-season-option-check { color: var(--color-dns-mid, #417483); font-size: 12px; font-weight: 700; }
+  .dns-season-badge.is-history { background: rgba(13,77,94,.07); color: var(--color-dns-muted, var(--color-dns-muted)); }
+  .dns-season-option-check { color: var(--color-dns-mid, var(--color-dns-mid)); font-size: 12px; font-weight: 700; }
 
   @keyframes dns-season-menu-in {
     from { opacity: 0; transform: translateY(-4px) scale(.99); }
@@ -225,7 +216,7 @@
     margin: 0 !important;
     padding: 0 !important;
     overflow: visible !important;
-    background: #fff !important;
+    background: var(--color-dns-surface) !important;
   }
 
   #root {
@@ -238,8 +229,8 @@
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    color: #0D4D5E !important;
-    background: #fff !important;
+    color: var(--color-dns-deep) !important;
+    background: var(--color-dns-surface) !important;
     font-family: var(--font-display);
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -251,7 +242,7 @@
     gap: 5mm;
     margin: 0 0 4mm;
     padding: 0 0 3mm;
-    border-bottom: 0.3mm solid #AAD0D1;
+    border-bottom: 0.3mm solid var(--color-dns-light);
   }
 
   .dns-print-logo {
@@ -270,7 +261,7 @@
     font-size: 11pt;
     line-height: 1.1;
     font-weight: 700;
-    color: #0D4D5E;
+    color: var(--color-dns-deep);
   }
 
   .dns-print-meta {
@@ -278,7 +269,7 @@
     font-family: var(--font-alt);
     font-size: 7pt;
     line-height: 1.15;
-    color: #5A7F8A;
+    color: var(--color-dns-muted);
   }
 
   .dns-print-legend {
@@ -304,7 +295,7 @@
     display: block;
     width: 5mm;
     height: 5mm;
-    border: 0.2mm solid rgba(13,77,94,.24);
+    border: 0.2mm solid color-mix(in srgb, var(--color-dns-deep) 24%, transparent);
   }
 
   .dns-print-legend-label {
@@ -315,7 +306,7 @@
     text-transform: uppercase;
     white-space: nowrap;
     text-overflow: ellipsis;
-    color: #0D4D5E;
+    color: var(--color-dns-deep);
   }
 
   .dns-print-legend-ref {
@@ -325,7 +316,7 @@
     line-height: 1.05;
     white-space: nowrap;
     text-overflow: ellipsis;
-    color: #5A7F8A;
+    color: var(--color-dns-muted);
   }
 
   .dns-print-table {
@@ -346,13 +337,13 @@
 
   .dns-print-table th,
   .dns-print-table td {
-    border: 0.2mm solid #B8C9CE !important;
+    border: 0.2mm solid var(--color-dns-border) !important;
     padding: 1mm 1.2mm !important;
     vertical-align: middle;
     font-size: 6.5pt !important;
     line-height: 1.15 !important;
-    color: #0D4D5E !important;
-    background: #fff !important;
+    color: var(--color-dns-deep) !important;
+    background: var(--color-dns-surface) !important;
   }
 
   .dns-print-table thead {
@@ -368,8 +359,8 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .02em;
-    color: #0D4D5E !important;
-    background: #F4F8F9 !important;
+    color: var(--color-dns-deep) !important;
+    background: var(--color-dns-bg) !important;
   }
 
   .dns-print-table tbody tr {
@@ -393,8 +384,8 @@
   .dns-print-table tfoot th {
     font-size: 7pt !important;
     font-weight: 700;
-    color: #fff !important;
-    background: #0D4D5E !important;
+    color: var(--color-dns-surface) !important;
+    background: var(--color-dns-deep) !important;
   }
 }
 

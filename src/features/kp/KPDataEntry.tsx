@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { KP_MILESTONES_2026_27 } from '@dolomitinordicski/dns-shared-data/kp-setup-2026-27';
 import { RegionLogos } from '../../components/RegionLogos';
 import type { DNSAccessContext } from '../../types/access';
 import type { CanonicalRecord, DNSCoreMaster } from '../../types/master';
@@ -33,11 +34,10 @@ type Candidate = {
   partnerCount: number;
 };
 
-const DEFAULT_MILESTONES_2026_27: KpMilestoneDoc[] = [
-  { id: '2026-27__m1', seasonId: '2026-27', date: '2026-12-23', label: '23.12.2026', order: 1 },
-  { id: '2026-27__m2', seasonId: '2026-27', date: '2027-01-06', label: '06.01.2027', order: 2 },
-  { id: '2026-27__m3', seasonId: '2026-27', date: '2027-01-20', label: '20.01.2027', order: 3 },
-];
+const DEFAULT_MILESTONES_2026_27: KpMilestoneDoc[] = KP_MILESTONES_2026_27.map((milestone) => ({
+  ...milestone,
+  label: milestone.label ?? `Milestone ${milestone.order}`,
+}));
 
 function ids(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
