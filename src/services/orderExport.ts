@@ -69,6 +69,63 @@ export function exportPublicOrderCsv(
   share: PublicOrderShareDocument,
   language: Language,
 ) {
+  if (share.snapshot.category === 'ticket' && share.snapshot.ticketNumberingStart) {
+    const numbering = buildTicketNumbering({
+      items: share.snapshot.items,
+      organizations: share.snapshot.organizations,
+      cells: share.snapshot.cells,
+      startNumber: share.snapshot.ticketNumberingStart,
+    });
+    const ranges = new Map(
+      numbering.rows.map((row) => [
+        `${row.organizationId}::${row.itemId}`,
+        `${formatTicketNumber(row.from)} - ${formatTicketNumber(row.to)}`,
+      ]),
+    );
+    const totals = new Map(
+      share.snapshot.items.map((item) => [
+        item.id,
+        numbering.rows
+          .filter((row) => row.itemId === item.id)
+          .reduce((sum, row) => sum + row.quantity, 0),
+      ]),
+    );
+    const rows: unknown[][] = [
+      [
+        share.snapshot.seasonId,
+        ...share.snapshot.items.map((item) =>
+          language === 'de' ? item.label.de : item.label.it,
+        ),
+      ],
+      ...share.snapshot.organizations.map((organization) => [
+        organization.sourceLabel,
+        ...share.snapshot.items.map(
+          (item) =>
+            ranges.get(`${organization.organizationId}::${item.id}`) ?? '',
+        ),
+      ]),
+      [
+        'Kontroll TOT',
+        ...share.snapshot.items.map((item) => totals.get(item.id) ?? 0),
+      ],
+      [],
+      [
+        language === 'de' ? 'Nächste Startnummer' : 'Prossimo numero iniziale',
+        formatTicketNumber(numbering.nextNumber),
+      ],
+    ];
+
+    const csv =
+      '\uFEFF' +
+      rows.map((row) => row.map(csvEscape).join(';')).join('\r\n');
+    downloadText(
+      `${fileBase(share)}_Nummerierung.csv`,
+      csv,
+      'text/csv;charset=utf-8',
+    );
+    return;
+  }
+
   const q = quantities(share);
   const exportedAt = exportTimestamp();
   const numbering =
@@ -150,9 +207,74 @@ export function exportPublicOrderExcel(
   share: PublicOrderShareDocument,
   language: Language,
 ) {
+  const workbook = XLSX.utils.book_new();
+
+  if (share.snapshot.category === 'ticket' && share.snapshot.ticketNumberingStart) {
+    const numbering = buildTicketNumbering({
+      items: share.snapshot.items,
+      organizations: share.snapshot.organizations,
+      cells: share.snapshot.cells,
+      startNumber: share.snapshot.ticketNumberingStart,
+    });
+    const ranges = new Map(
+      numbering.rows.map((row) => [
+        `${row.organizationId}::${row.itemId}`,
+        `${formatTicketNumber(row.from)} - ${formatTicketNumber(row.to)}`,
+      ]),
+    );
+    const totals = new Map(
+      share.snapshot.items.map((item) => [
+        item.id,
+        numbering.rows
+          .filter((row) => row.itemId === item.id)
+          .reduce((sum, row) => sum + row.quantity, 0),
+      ]),
+    );
+    const rows: unknown[][] = [
+      [
+        share.snapshot.seasonId,
+        ...share.snapshot.items.map((item) =>
+          language === 'de' ? item.label.de : item.label.it,
+        ),
+      ],
+      ...share.snapshot.organizations.map((organization) => [
+        organization.sourceLabel,
+        ...share.snapshot.items.map(
+          (item) =>
+            ranges.get(`${organization.organizationId}::${item.id}`) ?? '',
+        ),
+      ]),
+      [
+        'Kontroll TOT',
+        ...share.snapshot.items.map((item) => totals.get(item.id) ?? 0),
+      ],
+      [],
+      [
+        '',
+        '',
+        '',
+        '',
+        '',
+        '',
+        language === 'de' ? 'Nächste Startnummer' : 'Prossimo numero iniziale',
+        formatTicketNumber(numbering.nextNumber),
+      ],
+    ];
+    const sheet = XLSX.utils.aoa_to_sheet(rows);
+    sheet['!freeze'] = { xSplit: 1, ySplit: 1 };
+    sheet['!cols'] = [
+      { wch: 32 },
+      ...share.snapshot.items.map(() => ({ wch: 24 })),
+    ];
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Nummerierung');
+    XLSX.writeFile(workbook, `${fileBase(share)}_Nummerierung.xlsx`, {
+      compression: true,
+    });
+    return;
+  }
+
   const q = quantities(share);
   const exportedAt = exportTimestamp();
-  const workbook = XLSX.utils.book_new();
 
   const itemHeaders = share.snapshot.items.map((item) =>
     language === 'de' ? item.label.de : item.label.it,
