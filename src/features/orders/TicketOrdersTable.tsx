@@ -479,6 +479,30 @@ export function TicketOrdersTable({
     [category, draft, ticketNumberingStart],
   );
 
+  const ticketNumberingRanges = useMemo(
+    () =>
+      new Map(
+        (ticketNumbering?.rows ?? []).map((row) => [
+          `${row.organizationId}::${row.itemId}`,
+          `${formatTicketNumber(row.from)} - ${formatTicketNumber(row.to)}`,
+        ]),
+      ),
+    [ticketNumbering],
+  );
+
+  const ticketNumberingTotals = useMemo(
+    () =>
+      new Map(
+        (draft?.items ?? []).map((item) => [
+          item.id,
+          (ticketNumbering?.rows ?? [])
+            .filter((row) => row.itemId === item.id)
+            .reduce((sum, row) => sum + row.quantity, 0),
+        ]),
+      ),
+    [draft?.items, ticketNumbering],
+  );
+
   const shareUrl = shareId ? buildPublicShareUrl(shareId) : null;
 
   async function refreshShare() {
@@ -723,72 +747,6 @@ export function TicketOrdersTable({
           cells={draft.cells}
         />
       )}
-      {isAdmin && !developmentMode && (
-        <section className="no-print dns-card p-5 md:p-6">
-          <div className="dns-section-title">{t.publicShare}</div>
-          <p className="mt-2 font-alt text-[10px] text-dns-muted">
-            {dirty[category] ? t.shareDirty : (shareUrl ?? '—')}
-          </p>
-          {category === 'ticket' && (
-            <div className="mt-4 grid gap-3 md:grid-cols-[220px_1fr] md:items-end">
-              <label className="block">
-                <span className="dns-kicker">{t.numberingStart}</span>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={ticketNumberingStart}
-                  onChange={(event) =>
-                    setTicketNumberingStart(
-                      Math.max(1, Math.trunc(Number(event.target.value) || 1)),
-                    )
-                  }
-                  className="mt-2 w-full rounded-md border border-dns-mid/25 bg-white px-3 py-2 font-alt text-[13px] font-semibold tabular-nums text-dns-deep outline-none focus:border-dns-mid"
-                />
-              </label>
-              <div className="font-alt text-[10px] leading-relaxed text-dns-muted">
-                <div>{t.numberingStartHelp}</div>
-                {ticketNumbering && (
-                  <div className="mt-1 font-semibold text-dns-deep">
-                    {t.numberingNext}: {formatTicketNumber(ticketNumbering.nextNumber)}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-          <div className="mt-4 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => void publishShare()}
-              disabled={sharing || dirty[category]}
-              className="dns-button disabled:opacity-40" data-variant="primary"
-            >
-              <WireIcon name="share" size={14} />
-              {shareId ? t.updateShare : t.share}
-            </button>
-            {shareUrl && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => void copyShare()}
-                  className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
-                >
-                  {t.copyShare}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void revokeShare()}
-                  disabled={sharing}
-                  className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-mid disabled:opacity-40"
-                >
-                  {t.revokeShare}
-                </button>
-              </>
-            )}
-          </div>
-        </section>
-      )}
-
       <section className="dns-card overflow-hidden">
         <div className="p-5 md:p-6">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
@@ -1129,6 +1087,139 @@ export function TicketOrdersTable({
           </table>
         </div>
       </section>
+
+      {category === 'ticket' && ticketNumbering && (
+        <section className="dns-card overflow-hidden">
+          <div className="border-b border-dns-mid/10 p-5 md:p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div className="dns-kicker">2 · {language === 'de' ? 'Nummerierung' : 'Numerazione'}</div>
+                <h3 className="mt-1 text-[20px] font-semibold text-dns-deep">
+                  {language === 'de' ? 'Ticket-Nummerierung' : 'Numerazione tessere'}
+                </h3>
+                <p className="mt-2 max-w-3xl font-alt text-[10px] leading-relaxed text-dns-muted">
+                  {t.numberingStartHelp}
+                </p>
+              </div>
+              <label className="block w-full max-w-[220px]">
+                <span className="dns-kicker">{t.numberingStart}</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={ticketNumberingStart}
+                  onChange={(event) =>
+                    setTicketNumberingStart(
+                      Math.max(1, Math.trunc(Number(event.target.value) || 1)),
+                    )
+                  }
+                  className="mt-2 w-full rounded-md border border-dns-mid/25 bg-white px-3 py-2 font-alt text-[13px] font-semibold tabular-nums text-dns-deep outline-none focus:border-dns-mid"
+                />
+              </label>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1220px] border-collapse">
+              <thead>
+                <tr className="border-b border-dns-mid/15 bg-dns-bg text-left text-[9px] uppercase tracking-[.04em] text-dns-mid">
+                  <th className="sticky left-0 z-10 min-w-[220px] bg-dns-bg px-4 py-3">{t.organization}</th>
+                  {draft.items.map((item) => (
+                    <th key={item.id} className="min-w-[145px] px-3 py-3 text-center">
+                      {item.label[language]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {draft.organizations.map((organization, rowIndex) => (
+                  <tr
+                    key={organization.organizationId}
+                    className={[
+                      'border-b border-dns-mid/10 last:border-b-0',
+                      rowIndex % 2 ? 'bg-dns-bg/45' : 'bg-white',
+                    ].join(' ')}
+                  >
+                    <td
+                      className={[
+                        'sticky left-0 z-[5] px-4 py-2.5 text-[11px] font-semibold text-dns-deep',
+                        rowIndex % 2 ? 'bg-[#f7fafb]' : 'bg-white',
+                      ].join(' ')}
+                    >
+                      {organization.sourceLabel}
+                    </td>
+                    {draft.items.map((item) => (
+                      <td key={item.id} className="px-3 py-2.5 text-center font-alt text-[10px] tabular-nums">
+                        {ticketNumberingRanges.get(`${organization.organizationId}::${item.id}`) ?? ''}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-dns-mid bg-dns-deep text-white">
+                  <th className="sticky left-0 z-10 bg-dns-deep px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[.06em]">
+                    Kontroll TOT
+                  </th>
+                  {draft.items.map((item) => (
+                    <th key={item.id} className="px-3 py-3 text-center text-[11px] font-bold">
+                      {formatNumber(ticketNumberingTotals.get(item.id) ?? 0, language)}
+                    </th>
+                  ))}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+          <div className="border-t border-dns-mid/10 px-5 py-4 text-right font-alt text-[11px]">
+            <strong>{t.numberingNext}:</strong>{' '}
+            <span className="tabular-nums">{formatTicketNumber(ticketNumbering.nextNumber)}</span>
+          </div>
+        </section>
+      )}
+
+      {isAdmin && !developmentMode && (
+        <section className="no-print dns-card p-5 md:p-6">
+          <div className="dns-kicker">
+            {category === 'ticket' ? '3' : '2'} · {t.publicShare}
+          </div>
+          <p className="mt-2 font-alt text-[10px] text-dns-muted">
+            {dirty[category] ? t.shareDirty : (shareUrl ?? '—')}
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => void publishShare()}
+              disabled={sharing || dirty[category]}
+              className="dns-button disabled:opacity-40"
+              data-variant="primary"
+            >
+              <WireIcon name="share" size={14} />
+              {shareId ? t.updateShare : t.share}
+            </button>
+            {shareUrl && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void copyShare()}
+                  className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
+                >
+                  {t.copyShare}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void revokeShare()}
+                  disabled={sharing}
+                  className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-mid disabled:opacity-40"
+                >
+                  {t.revokeShare}
+                </button>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
     </div>
   );
 }
