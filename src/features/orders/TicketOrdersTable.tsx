@@ -707,7 +707,7 @@ export function TicketOrdersTable({
               type="button"
               onClick={() => void publishShare()}
               disabled={sharing || dirty[category]}
-              className="inline-flex items-center gap-2 rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white disabled:opacity-40"
+              className="dns-button disabled:opacity-40" data-variant="primary"
             >
               <WireIcon name="share" size={14} />
               {shareId ? t.updateShare : t.share}
