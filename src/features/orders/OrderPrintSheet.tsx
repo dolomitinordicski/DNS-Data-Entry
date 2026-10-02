@@ -111,6 +111,21 @@ export function OrderPrintSheet({
           startNumber: ticketNumberingStart,
         })
       : null;
+  const numberingRanges = new Map(
+    (numbering?.rows ?? []).map((row) => [
+      `${row.organizationId}::${row.itemId}`,
+      `${formatTicketNumber(row.from)} - ${formatTicketNumber(row.to)}`,
+    ]),
+  );
+  const numberingTotals = new Map(
+    items.map((item) => [
+      item.id,
+      (numbering?.rows ?? [])
+        .filter((row) => row.itemId === item.id)
+        .reduce((sum, row) => sum + row.quantity, 0),
+    ]),
+  );
+
   const title =
     category === 'wristband'
       ? t.wristbands
@@ -156,6 +171,53 @@ export function OrderPrintSheet({
         </div>
       )}
 
+      {category === 'ticket' && numbering ? (
+        <>
+          <table className="dns-print-table">
+            <colgroup>
+              <col className="dns-print-col-org" />
+              {items.map((item) => (
+                <col key={item.id} className="dns-print-col-data" />
+              ))}
+            </colgroup>
+            <thead>
+              <tr>
+                <th>{t.organization}</th>
+                {items.map((item) => (
+                  <th key={item.id} className="dns-print-number-header">
+                    {item.label[language]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {organizations.map((organization) => (
+                <tr key={organization.organizationId}>
+                  <td>{organization.sourceLabel}</td>
+                  {items.map((item) => (
+                    <td key={item.id} className="dns-print-number">
+                      {numberingRanges.get(`${organization.organizationId}::${item.id}`) ?? ''}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th>Kontroll TOT</th>
+                {items.map((item) => (
+                  <th key={item.id} className="dns-print-number">
+                    {formatNumber(numberingTotals.get(item.id) ?? 0, language)}
+                  </th>
+                ))}
+              </tr>
+            </tfoot>
+          </table>
+          <div className="dns-print-meta" style={{ marginTop: '3mm', textAlign: 'right', fontWeight: 700 }}>
+            {t.nextNumber}: {formatTicketNumber(numbering.nextNumber)}
+          </div>
+        </>
+      ) : (
       <table className="dns-print-table">
         <colgroup>
           <col className="dns-print-col-org" />
@@ -225,49 +287,6 @@ export function OrderPrintSheet({
           </tr>
         </tfoot>
       </table>
-
-      {numbering && (
-        <div style={{ breakBefore: 'page', pageBreakBefore: 'always', marginTop: '4mm' }}>
-          <div className="dns-print-document-header">
-            <div className="dns-print-document-heading">
-              <div className="dns-print-title">{t.numbering}</div>
-              <div className="dns-print-meta">
-                WS {seasonId} · {t.nextNumber}: {formatTicketNumber(numbering.nextNumber)}
-              </div>
-            </div>
-          </div>
-          <table className="dns-print-table">
-            <thead>
-              <tr>
-                <th>{t.ticketType}</th>
-                <th>{t.organization}</th>
-                <th className="dns-print-number-header">{t.quantity}</th>
-                <th className="dns-print-number-header">{t.from}</th>
-                <th className="dns-print-number-header">{t.to}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {numbering.rows.map((row) => (
-                <tr key={`${row.itemId}::${row.organizationId}`}>
-                  <td>{row.itemLabel[language]}</td>
-                  <td>{row.organizationLabel}</td>
-                  <td className="dns-print-number">{formatNumber(row.quantity, language)}</td>
-                  <td className="dns-print-number">{formatTicketNumber(row.from)}</td>
-                  <td className="dns-print-number">{formatTicketNumber(row.to)}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <th colSpan={2}>{t.total}</th>
-                <th className="dns-print-number">{formatNumber(numbering.totalQuantity, language)}</th>
-                <th colSpan={2} className="dns-print-number">
-                  {t.nextNumber}: {formatTicketNumber(numbering.nextNumber)}
-                </th>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
       )}
     </section>,
     document.body,
