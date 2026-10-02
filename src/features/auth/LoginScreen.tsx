@@ -2,6 +2,7 @@ import { FormEvent, useState } from 'react';
 import { DNS_SHARED_BRAND } from '../../config/brand';
 import { signIn } from '../../services/auth';
 import { DNSFooter } from '../../components/DNSFooter';
+import { AccessibilityMount } from '../../components/AccessibilityMount';
 
 type Language = 'de' | 'it';
 
@@ -75,7 +76,9 @@ export function LoginScreen({
             </div>
           </div>
           <div className="dns-tool-header-actions">
-            <div className="dns-tool-header-language">
+            <div className="dns-tool-header-controls">
+              <AccessibilityMount language={language} />
+              <div className="dns-tool-header-language">
               {(['de', 'it'] as const).map((lang) => (
                 <button
                   key={lang}
@@ -89,12 +92,13 @@ export function LoginScreen({
                   {lang.toUpperCase()}
                 </button>
               ))}
+              </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-[1440px] justify-center px-5 py-12 md:px-8 md:py-20">
+      <main data-dns-shell-main className="mx-auto flex w-full max-w-[1440px] flex-1 justify-center px-5 py-12 md:px-8 md:py-20">
         <section className="dns-card w-full max-w-[460px] p-6 md:p-8">
           <div className="dns-kicker">{t.subtitle}</div>
           <h1 className="mt-1 text-[28px] font-semibold text-dns-deep">{t.title}</h1>
@@ -158,7 +162,7 @@ export function LoginScreen({
           </p>
         </section>
       </main>
-      <DNSFooter detail="Geschützter Zugang" />
+      <DNSFooter detail={t.subtitle} />
     </div>
   );
 }
