@@ -259,24 +259,24 @@ export function PublicOrderSharePage({
         <button
           type="button"
           onClick={() => void exportPublicOrderCsv(share, language)}
-          className="dns-button border-white/30 bg-transparent text-white"
-          data-variant="secondary"
+          className="dns-tool-header-session-action"
+          data-dns-press
         >
           {t.exportCsv}
         </button>
         <button
           type="button"
           onClick={() => void exportPublicOrderExcel(share, language)}
-          className="dns-button border-white/30 bg-transparent text-white"
-          data-variant="secondary"
+          className="dns-tool-header-session-action"
+          data-dns-press
         >
           {t.exportExcel}
         </button>
         <button
           type="button"
           onClick={() => void dnsDataEntryCapabilities.run('print')}
-          className="dns-button border-white/30 bg-transparent text-white"
-          data-variant="secondary"
+          className="dns-tool-header-session-action"
+          data-dns-press
         >
           {t.print}
         </button>
