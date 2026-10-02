@@ -9,12 +9,8 @@ import {
   where,
   writeBatch,
 } from 'firebase/firestore';
+import { ORDER_SOURCE_ORGANIZATIONS_2026_27 } from '@dolomitinordicski/dns-shared-data';
 import { db } from './dnsCore';
-import {
-  pocketfolderOrderDraft2026,
-  ticketOrderDraft2026,
-  wristbandOrderDraft2026,
-} from '../config/orders2026';
 import type {
   OrderMatrixCategory,
   OrderMatrixDraft,
@@ -42,17 +38,8 @@ function lineId(
   return `${orderId(seasonId, category, organizationId)}__${itemId}`;
 }
 
-function fallbackDraft(category: OrderMatrixCategory) {
-  if (category === 'wristband') return wristbandOrderDraft2026;
-  if (category === 'pocketfolder') return pocketfolderOrderDraft2026;
-  return ticketOrderDraft2026;
-}
-
-function fallbackOrganization(
-  category: OrderMatrixCategory,
-  organizationId: string,
-) {
-  return fallbackDraft(category).organizations.find(
+function fallbackOrganization(organizationId: string) {
+  return ORDER_SOURCE_ORGANIZATIONS_2026_27.find(
     (organization) => organization.organizationId === organizationId,
   );
 }
@@ -109,7 +96,7 @@ export async function loadPersistedOrderMatrix({
   );
 
   const organizations = organizationIds.map((organizationId) => {
-    const fallback = fallbackOrganization(category, organizationId);
+    const fallback = fallbackOrganization(organizationId);
     const defaultDeliveryLocationId = fallback?.defaultDeliveryLocationId;
     const deliveryLocation = defaultDeliveryLocationId
       ? deliveryById.get(defaultDeliveryLocationId)
