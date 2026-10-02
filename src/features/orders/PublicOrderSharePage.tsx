@@ -2,6 +2,7 @@ import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useMemo, useState } from 'react';
 import { DNS_SHARED_BRAND } from '../../config/brand';
 import { OrderPrintSheet } from './OrderPrintSheet';
+import { DNSFooter } from '../../components/DNSFooter';
 import {
   loadPublicOrderShare,
   type PublicOrderShareDocument,
@@ -194,20 +195,18 @@ export function PublicOrderSharePage({
 
   return (
     <div className="min-h-screen bg-dns-bg">
-      <header className="no-print bg-dns-deep text-white">
-        <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-4 px-5 py-3.5 md:px-8">
-          <div className="flex items-center gap-4">
-            <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="h-10 w-auto" />
-            <div>
-              <div className="text-[20px] uppercase tracking-[.035em]">
+      <header data-dns-tool-header className="no-print bg-dns-deep text-white">
+        <div className="dns-tool-header-shell">
+          <div className="dns-tool-header-brand">
+            <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="dns-tool-header-logo" />
+            <div className="dns-tool-header-identity">
+              <div className="dns-tool-header-title">
                 <strong>DNS</strong> <span className="font-normal">ORDERS</span>
               </div>
-              <div className="mt-1 font-alt text-[10px] uppercase tracking-[.06em] text-dns-light">
-                {t.supplierView}
-              </div>
+              <div className="dns-tool-header-subtitle">{t.supplierView}</div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="dns-tool-header-actions">
             <div className="flex gap-3 text-[10px] font-bold uppercase tracking-[.06em]">
               {(['de', 'it'] as const).map((lang) => (
                 <button
@@ -474,6 +473,7 @@ export function PublicOrderSharePage({
         </section>
         )}
       </main>
+      <DNSFooter tool="DNS ORDERS" detail={t.supplierView} />
     </div>
   );
 }
