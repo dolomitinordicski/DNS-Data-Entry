@@ -69,10 +69,13 @@ function formatNumber(value: number, language: Language) {
 
 export function PublicOrderSharePage({
   shareId,
+  language,
+  onLanguageChange,
 }: {
   shareId: string;
+  language: Language;
+  onLanguageChange: (language: Language) => void;
 }) {
-  const [language, setLanguage] = useState<Language>('de');
   const [share, setShare] = useState<PublicOrderShareDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const t = copy[language];
@@ -212,7 +215,7 @@ export function PublicOrderSharePage({
                 <button
                   key={lang}
                   type="button"
-                  onClick={() => setLanguage(lang)}
+                  onClick={() => onLanguageChange(lang)}
                   className={[
                     'border-0 border-b-2 bg-transparent px-1 py-1 text-white transition',
                     language === lang
