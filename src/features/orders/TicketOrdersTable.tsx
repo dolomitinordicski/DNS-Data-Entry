@@ -3,10 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { DEV_AREA_TEST_DELIVERY_LOCATIONS } from '../../config/devAccess';
 import {
   cloneOrderDraft,
-  pocketfolderOrderDraft2026,
-  ticketOrderDraft2026,
-  wristbandOrderDraft2026,
-} from '../../config/orders2026';
+  ORDER_DEVELOPMENT_DRAFTS_2026_27,
+} from '../../config/orderFixtures';
 import {
   loadPersistedOrderMatrix,
   loadPocketfolderSourceRows,
@@ -167,12 +165,8 @@ function statusStorageKey(category: OrderMatrixCategory) {
   return `dns-order-status-2026-27-area-test-${category}`;
 }
 
-function devSource(category: OrderMatrixCategory) {
-  return category === 'wristband'
-    ? wristbandOrderDraft2026
-    : category === 'pocketfolder'
-      ? pocketfolderOrderDraft2026
-      : ticketOrderDraft2026;
+function devSource(category: OrderMatrixCategory): OrderMatrixDraft {
+  return ORDER_DEVELOPMENT_DRAFTS_2026_27[category];
 }
 
 function scopeDevDraft(
