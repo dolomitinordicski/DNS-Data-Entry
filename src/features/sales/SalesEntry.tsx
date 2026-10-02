@@ -85,7 +85,8 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
       setStatus(persistenceMessage(error, language));
     } finally { setBusy(false); }
   }
-  const inputClass = 'w-full rounded-md border border-dns-mid/20 bg-white px-2 py-2 font-alt text-[11px] disabled:bg-dns-bg';
+  const inputClass = 'dns-input font-alt text-[11px]';
+  const selectClass = 'dns-select font-alt text-[11px]';
   return <section className="dns-card p-5 md:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="dns-section-title">{t.title}</h2><span className="dns-pill">{t.draft}</span></div>
     <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -100,12 +101,12 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
       <div className="mt-5 grid gap-3 md:grid-cols-4">
         <label className="text-[11px]">{t.organization}<select disabled={busy} className="dns-select dns-context-select w-full px-2 py-2 font-alt text-[11px]" value={org.id} onChange={(event) => setOrgId(event.target.value)}>{organizations.map((item) => <option key={item.id} value={item.id}>{String(item.canonicalName ?? item.id)}</option>)}</select></label>
         <label className="text-[11px]">{t.area}<select disabled={busy} className="dns-select dns-context-select w-full px-2 py-2 font-alt text-[11px]" value={areaId} onChange={(event) => setSelectedArea(event.target.value)}>{areaIds.map((id) => <option key={id} value={id}>{String(master.reportingAreas.find((area) => area.id === id)?.canonicalName ?? id)}</option>)}</select></label>
-        <label className="text-[11px]">{language === 'de' ? 'Kanal' : 'Canale'}<select disabled={busy} className={inputClass} value={channel} onChange={(event) => setChannel(event.target.value as SalesChannel)}>{Object.entries(channelLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
-        <label className="text-[11px]">{language === 'de' ? 'Periode' : 'Periodo'}<select disabled={busy} className={inputClass} value={period} onChange={(event) => setPeriod(event.target.value as SalesPeriod)}>{Object.entries(periodLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
+        <label className="text-[11px]">{language === 'de' ? 'Kanal' : 'Canale'}<select disabled={busy} className={selectClass} value={channel} onChange={(event) => setChannel(event.target.value as SalesChannel)}>{Object.entries(channelLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
+        <label className="text-[11px]">{language === 'de' ? 'Periode' : 'Periodo'}<select disabled={busy} className={selectClass} value={period} onChange={(event) => setPeriod(event.target.value as SalesPeriod)}>{Object.entries(periodLabels).map(([id, label]) => <option key={id} value={id}>{label[language]}</option>)}</select></label>
       </div>
       <div className="dns-entity-label mt-4"><RegionLogos entityType="reportingArea" entityId={areaId} /><strong className="text-[12px]">{String(master.reportingAreas.find((area) => area.id === areaId)?.canonicalName ?? areaId)}</strong></div>
       <p className="mt-3 font-alt text-[11px] text-dns-muted">{t.source}. {t.help}</p>
-      <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[850px] text-left text-[11px]"><thead><tr className="border-b border-dns-mid/20"><th className="p-2">{language === 'de' ? 'Produkt' : 'Prodotto'}</th><th className="p-2">{t.quantity}</th><th className="p-2">{t.price}</th><th className="p-2">{t.calculated}</th><th className="p-2">{t.actual}</th><th className="p-2">{t.reason}</th></tr></thead><tbody>
+      <div className="mt-4 overflow-x-auto"><table className="dns-table min-w-[850px]"><thead><tr className="border-b border-dns-mid/20"><th className="p-2">{language === 'de' ? 'Produkt' : 'Prodotto'}</th><th className="p-2">{t.quantity}</th><th className="p-2">{t.price}</th><th className="p-2">{t.calculated}</th><th className="p-2">{t.actual}</th><th className="p-2">{t.reason}</th></tr></thead><tbody>
         {cells.map(({draft, price, calculated}) => <tr key={draft.id} className="border-b border-dns-mid/10"><th className="p-2 font-semibold">{productLabels[draft.productCode][language]}</th>
           <td className="w-[115px] p-2"><input aria-label={`${t.quantity} · ${productLabels[draft.productCode][language]}`} className={inputClass} type="number" min="0" step="1" disabled={!editable} value={draft.quantity ?? ''} onChange={(event) => { const value = event.target.value === '' ? null : Number(event.target.value); if (value === null || (Number.isSafeInteger(value) && value >= 0)) patch(draft,{quantity:value}); }} /></td>
           <td className="p-2">{price === null ? t.missing : money(price)}</td><td className="p-2">{calculated === null ? '—' : money(calculated)}</td>
