@@ -294,26 +294,49 @@ function App() {
   if (!hasAccess) {
     return (
       <div className="flex min-h-screen flex-col bg-dns-bg">
-        <header className="bg-dns-deep text-white">
-          <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3.5 md:px-8">
+        <header data-dns-tool-header className="bg-dns-deep text-white">
+          <div className="dns-tool-header-shell">
             <div className="dns-tool-header-brand">
-              <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="h-10 w-auto" />
-              <div className="text-[22px] uppercase tracking-[.035em]">
-                <strong>DNS</strong> <span className="font-normal">DATA ENTRY</span>
+              <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="dns-tool-header-logo" />
+              <div className="dns-tool-header-identity">
+                <div className="dns-tool-header-title">
+                  <strong>DNS</strong> <span className="font-normal">DATA ENTRY</span>
+                </div>
+                <div className="dns-tool-header-subtitle">{t.noAccessTitle}</div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={leaveSession}
-              data-dns-press
-              data-dns-hover
-              className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white"
-            >
-              {developmentMode ? t.exitDev : t.signOut}
-            </button>
+            <div className="dns-tool-header-actions">
+              <div className="dns-tool-header-controls">
+                <AccessibilityMount language={language} />
+                <div className="dns-tool-header-language">
+                  {(['de', 'it'] as const).map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => setDNSDataEntryLanguage(lang)}
+                      className={[
+                        'border-0 border-b-2 bg-transparent px-1 py-1 text-white',
+                        language === lang ? 'border-white' : 'border-transparent opacity-60',
+                      ].join(' ')}
+                    >
+                      {lang.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={leaveSession}
+                data-dns-press
+                data-dns-hover
+                className="dns-tool-header-session-action hover:text-white"
+              >
+                {developmentMode ? t.exitDev : t.signOut}
+              </button>
+            </div>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-12 md:px-8">
+        <main data-dns-shell-main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-12 md:px-8">
           <section className="dns-card p-6 md:p-8">
             <div className="dns-kicker">{authUser?.email ?? authUser?.uid}</div>
             <h1 className="mt-1 text-[26px] font-semibold">{t.noAccessTitle}</h1>
@@ -486,7 +509,7 @@ function App() {
       </nav>
 
 
-      <div className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-5 md:px-8">
+      <div data-dns-shell-main className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-5 md:px-8">
         <main className="space-y-5">
           <section className="dns-card p-5 md:p-6" data-dns-reveal>
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
