@@ -7,7 +7,7 @@ export interface RegionLogo {
   entityBindings: { entityType: LogoEntityType; entityId: string }[];
 }
 export const REGION_LOGO_MANIFEST_URL =
-  'https://raw.githubusercontent.com/dolomitinordicski/dns-shared-data/main/brand/regions/manifest.json';
+  'https://raw.githubusercontent.com/dolomitinordicski/dns-shared-data/release/v1.1.0/brand/regions/manifest.json';
 let manifestPromise: Promise<RegionLogo[]> | undefined;
 
 export function loadRegionLogos(): Promise<RegionLogo[]> {
