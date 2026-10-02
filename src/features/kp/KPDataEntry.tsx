@@ -406,7 +406,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
           </p>
         </div>
         {canManageMilestones && <button type="button" onClick={() => void persistMilestones()} disabled={busy}
-          className="rounded-md bg-dns-deep px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
+          className="dns-button disabled:opacity-50" data-variant="primary">
           {it ? 'Salva milestone' : 'Stichtage speichern'}
         </button>}
       </div>
@@ -565,7 +565,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
           </p>
           <button type="button" onClick={() => void persistEntry()}
             disabled={!canEditOrganization(selectedOrganization) || busy || milestones.length === 0}
-            className="rounded-md bg-dns-deep px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">
+            className="dns-button disabled:opacity-50" data-variant="primary">
             {busy ? (it ? 'Salvataggio…' : 'Speichern…') : (it ? 'Salva dati KP' : 'KP-Daten speichern')}
           </button>
         </div>
