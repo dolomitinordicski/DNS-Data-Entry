@@ -10,6 +10,7 @@ import {
   exportPublicOrderCsv,
   exportPublicOrderExcel,
 } from '../../services/orderExport';
+import { buildTicketNumbering, formatTicketNumber } from '../../services/ticketNumbering';
 
 type Language = 'de' | 'it';
 
@@ -28,6 +29,13 @@ const copy = {
     supplierRef: 'Lieferantenreferenz',
     delivery: 'Lieferadresse',
     addressWarning: 'Adresse vor Versand bestätigen',
+    numbering: 'Nummerierung',
+    ticketType: 'Ticketart',
+    quantity: 'Menge',
+    from: 'Von',
+    to: 'Bis',
+    startNumber: 'Startnummer',
+    nextNumber: 'Nächste Startnummer',
   },
   it: {
     supplierView: 'Vista fornitore',
@@ -43,6 +51,13 @@ const copy = {
     supplierRef: 'Riferimento fornitore',
     delivery: 'Indirizzo consegna',
     addressWarning: 'Confermare indirizzo prima della spedizione',
+    numbering: 'Numerazione',
+    ticketType: 'Tipo tessera',
+    quantity: 'Quantità',
+    from: 'Da',
+    to: 'A',
+    startNumber: 'Numero iniziale',
+    nextNumber: 'Prossimo numero iniziale',
   },
 } as const;
 
@@ -113,6 +128,22 @@ export function PublicOrderSharePage({
       ]),
     );
   }, [share, quantities]);
+
+  const numbering = useMemo(() => {
+    if (
+      !share ||
+      share.snapshot.category !== 'ticket' ||
+      !share.snapshot.ticketNumberingStart
+    ) {
+      return null;
+    }
+    return buildTicketNumbering({
+      items: share.snapshot.items,
+      organizations: share.snapshot.organizations,
+      cells: share.snapshot.cells,
+      startNumber: share.snapshot.ticketNumberingStart,
+    });
+  }, [share]);
 
   if (loading) {
     return (
@@ -214,6 +245,7 @@ export function PublicOrderSharePage({
             quantity: cell.quantity,
           }))}
           generatedAt={snapshot.generatedAt}
+          ticketNumberingStart={snapshot.ticketNumberingStart}
         />
 
         <section className="dns-card p-5 md:p-6 print-flat">
@@ -259,6 +291,55 @@ export function PublicOrderSharePage({
                   </div>
                 </div>
               ))}
+            </div>
+          </section>
+        )}
+
+        {numbering && (
+          <section className="dns-card mt-5 overflow-hidden print-flat">
+            <div className="flex flex-col gap-3 border-b border-dns-mid/10 p-5 md:flex-row md:items-end md:justify-between md:p-6">
+              <div>
+                <div className="dns-section-title">{t.numbering}</div>
+                <div className="mt-2 font-alt text-[10px] text-dns-muted">
+                  {t.startNumber}: <strong className="text-dns-deep">{formatTicketNumber(numbering.startNumber)}</strong>
+                </div>
+              </div>
+              <div className="dns-pill">
+                {t.nextNumber}: {formatTicketNumber(numbering.nextNumber)}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] border-collapse">
+                <thead>
+                  <tr className="border-b border-dns-mid/15 bg-dns-bg text-left text-[9px] uppercase tracking-[.05em] text-dns-mid">
+                    <th className="px-4 py-3">{t.ticketType}</th>
+                    <th className="px-4 py-3">{t.organization}</th>
+                    <th className="px-4 py-3 text-right">{t.quantity}</th>
+                    <th className="px-4 py-3 text-right">{t.from}</th>
+                    <th className="px-4 py-3 text-right">{t.to}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {numbering.rows.map((row) => (
+                    <tr key={`${row.itemId}::${row.organizationId}`} className="border-b border-dns-mid/10">
+                      <td className="px-4 py-2.5 text-[11px] font-semibold">{row.itemLabel[language]}</td>
+                      <td className="px-4 py-2.5 text-[11px]">{row.organizationLabel}</td>
+                      <td className="px-4 py-2.5 text-right font-alt text-[11px]">{formatNumber(row.quantity, language)}</td>
+                      <td className="px-4 py-2.5 text-right font-alt text-[11px] tabular-nums">{formatTicketNumber(row.from)}</td>
+                      <td className="px-4 py-2.5 text-right font-alt text-[11px] tabular-nums">{formatTicketNumber(row.to)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-dns-deep text-white">
+                    <th colSpan={2} className="px-4 py-3 text-left text-[10px] uppercase tracking-[.06em]">{t.total}</th>
+                    <th className="px-4 py-3 text-right text-[11px]">{formatNumber(numbering.totalQuantity, language)}</th>
+                    <th colSpan={2} className="px-4 py-3 text-right text-[10px]">
+                      {t.nextNumber}: {formatTicketNumber(numbering.nextNumber)}
+                    </th>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </section>
         )}
