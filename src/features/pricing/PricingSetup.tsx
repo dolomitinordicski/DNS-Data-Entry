@@ -297,7 +297,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
             type="button"
             onClick={addOverride}
             disabled={readOnly}
-            className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white hover:bg-dns-mid disabled:cursor-not-allowed disabled:opacity-40"
+            className="dns-button disabled:cursor-not-allowed disabled:opacity-40" data-variant="primary"
           >
             {t.addOverride}
           </button>
