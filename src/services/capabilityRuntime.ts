@@ -1,8 +1,11 @@
 import * as XLSX from 'xlsx';
 import {
-  createDNSCapabilityRuntime,
-  type DNSCapabilityAdapter,
-} from '@dolomitinordicski/dns-shared-data/capability-runtime';
+  initDNSFoundation,
+  type DNSFoundationRuntimeHandle,
+} from '@dolomitinordicski/dns-shared-data/foundation';
+import type { DNSCapabilityAdapter } from '@dolomitinordicski/dns-shared-data/capability-runtime';
+
+type Language = 'de' | 'it';
 
 const xlsxAdapter: DNSCapabilityAdapter<{
   workbook: XLSX.WorkBook;
@@ -22,7 +25,30 @@ const xlsxAdapter: DNSCapabilityAdapter<{
   },
 };
 
-export const dnsDataEntryCapabilities = createDNSCapabilityRuntime({
-  declared: ['export.xlsx'],
-  adapters: [xlsxAdapter],
-});
+let foundation: DNSFoundationRuntimeHandle | null = null;
+
+export function initDNSDataEntryFoundation(language: Language = 'de') {
+  if (!foundation) {
+    foundation = initDNSFoundation({
+      language,
+      shellProfile: 'operational',
+      capabilities: ['export.xlsx', 'print'],
+      capabilityAdapters: [xlsxAdapter],
+      accessibility: false,
+    });
+  } else if (foundation.getLanguage() !== language) {
+    foundation.setLanguage(language);
+  }
+
+  return foundation;
+}
+
+export function syncDNSDataEntryFoundationLanguage(language: Language) {
+  initDNSDataEntryFoundation(language).setLanguage(language);
+}
+
+export const dnsDataEntryCapabilities = {
+  run<T = unknown>(capability: 'export.xlsx' | 'print', input?: unknown) {
+    return initDNSDataEntryFoundation().capabilityRuntime.run<T>(capability, input);
+  },
+};
