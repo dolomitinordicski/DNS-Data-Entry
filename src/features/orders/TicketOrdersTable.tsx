@@ -19,6 +19,7 @@ import {
   revokePublicOrderShare,
 } from '../../services/publicOrderShares';
 import { AreaOrderForm } from './AreaOrderForm';
+import { buildTicketNumbering, formatTicketNumber } from '../../services/ticketNumbering';
 import { OrderPrintSheet } from './OrderPrintSheet';
 import { PocketfolderSourceView } from './PocketfolderSourceView';
 import { WireIcon } from '../../components/WireIcon';
@@ -93,6 +94,9 @@ const copy = {
     copyShare: 'Link kopieren',
     publicShare: 'Öffentlicher Lieferanten-Link',
     shareDirty: 'Zuerst die Änderungen in Firestore speichern.',
+    numberingStart: 'Startnummer',
+    numberingStartHelp: 'Erste Nummer der fortlaufenden Ticketserie. Die Reihenfolge folgt Ticketart und danach Organisation.',
+    numberingNext: 'Nächste Startnummer',
   },
   it: {
     title: 'Ordini',
@@ -142,6 +146,9 @@ const copy = {
     copyShare: 'Copia link',
     publicShare: 'Link pubblico fornitore',
     shareDirty: 'Salva prima le modifiche in Firestore.',
+    numberingStart: 'Numero iniziale',
+    numberingStartHelp: 'Primo numero della serie progressiva. L’ordine segue prima il tipo di tessera e poi l’organizzazione.',
+    numberingNext: 'Prossimo numero iniziale',
   },
 } as const;
 
@@ -323,6 +330,7 @@ export function TicketOrdersTable({
   const [error, setError] = useState(false);
   const [shareId, setShareId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [ticketNumberingStart, setTicketNumberingStart] = useState(1);
 
   const visibleOrganizationIds = useMemo(
     () => getOrganizationIdsByPermission(
@@ -458,6 +466,19 @@ export function TicketOrdersTable({
 
   const grandTotal = [...rowTotals.values()].reduce((sum, value) => sum + value, 0);
 
+  const ticketNumbering = useMemo(
+    () =>
+      category === 'ticket'
+        ? buildTicketNumbering({
+            items: draft?.items ?? [],
+            organizations: draft?.organizations ?? [],
+            cells: draft?.cells ?? [],
+            startNumber: ticketNumberingStart,
+          })
+        : null,
+    [category, draft, ticketNumberingStart],
+  );
+
   const shareUrl = shareId ? buildPublicShareUrl(shareId) : null;
 
   async function refreshShare() {
@@ -468,6 +489,9 @@ export function TicketOrdersTable({
     try {
       const share = await getActivePublicShare(seasonId, category);
       setShareId(share?.id ?? null);
+      if (category === 'ticket' && share?.snapshot.ticketNumberingStart) {
+        setTicketNumberingStart(share.snapshot.ticketNumberingStart);
+      }
     } catch (reason) {
       console.error('Public order share lookup failed', reason);
       setShareId(null);
@@ -483,7 +507,10 @@ export function TicketOrdersTable({
     setSharing(true);
     setError(false);
     try {
-      const share = await publishPublicOrderShare(current.draft);
+      const share = await publishPublicOrderShare(
+        current.draft,
+        category === 'ticket' ? { ticketNumberingStart } : undefined,
+      );
       setShareId(share.id);
     } catch (reason) {
       console.error('Public order share publish failed', reason);
@@ -702,6 +729,33 @@ export function TicketOrdersTable({
           <p className="mt-2 font-alt text-[10px] text-dns-muted">
             {dirty[category] ? t.shareDirty : (shareUrl ?? '—')}
           </p>
+          {category === 'ticket' && (
+            <div className="mt-4 grid gap-3 md:grid-cols-[220px_1fr] md:items-end">
+              <label className="block">
+                <span className="dns-kicker">{t.numberingStart}</span>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={ticketNumberingStart}
+                  onChange={(event) =>
+                    setTicketNumberingStart(
+                      Math.max(1, Math.trunc(Number(event.target.value) || 1)),
+                    )
+                  }
+                  className="mt-2 w-full rounded-md border border-dns-mid/25 bg-white px-3 py-2 font-alt text-[13px] font-semibold tabular-nums text-dns-deep outline-none focus:border-dns-mid"
+                />
+              </label>
+              <div className="font-alt text-[10px] leading-relaxed text-dns-muted">
+                <div>{t.numberingStartHelp}</div>
+                {ticketNumbering && (
+                  <div className="mt-1 font-semibold text-dns-deep">
+                    {t.numberingNext}: {formatTicketNumber(ticketNumbering.nextNumber)}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-3">
             <button
               type="button"

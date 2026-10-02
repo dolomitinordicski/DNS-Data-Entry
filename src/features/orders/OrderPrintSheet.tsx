@@ -1,6 +1,7 @@
 import { RegionLogos } from '../../components/RegionLogos';
 import { createPortal } from 'react-dom';
 import { DNS_SHARED_BRAND } from '../../config/brand';
+import { buildTicketNumbering, formatTicketNumber } from '../../services/ticketNumbering';
 import type {
   OrderMatrixCategory,
   OrderMatrixItem,
@@ -18,6 +19,7 @@ interface Props {
   organizations: OrderMatrixOrganization[];
   cells: OrderMatrixCell[];
   generatedAt?: string;
+  ticketNumberingStart?: number;
 }
 
 const copy = {
@@ -29,6 +31,12 @@ const copy = {
     delivery: 'Lieferadresse',
     total: 'Gesamt',
     generatedAt: 'Stand',
+    numbering: 'Nummerierung',
+    ticketType: 'Ticketart',
+    quantity: 'Menge',
+    from: 'Von',
+    to: 'Bis',
+    nextNumber: 'Nächste Startnummer',
   },
   it: {
     wristbands: 'Braccialetti',
@@ -38,6 +46,12 @@ const copy = {
     delivery: 'Indirizzo consegna',
     total: 'Totale',
     generatedAt: 'Aggiornato',
+    numbering: 'Numerazione',
+    ticketType: 'Tipo tessera',
+    quantity: 'Quantità',
+    from: 'Da',
+    to: 'A',
+    nextNumber: 'Prossimo numero iniziale',
   },
 } as const;
 
@@ -53,6 +67,7 @@ export function OrderPrintSheet({
   organizations,
   cells,
   generatedAt,
+  ticketNumberingStart,
 }: Props) {
   const t = copy[language];
   const quantities = new Map(
@@ -87,6 +102,15 @@ export function OrderPrintSheet({
   );
 
   const grandTotal = [...rowTotals.values()].reduce((sum, value) => sum + value, 0);
+  const numbering =
+    category === 'ticket' && ticketNumberingStart
+      ? buildTicketNumbering({
+          items,
+          organizations,
+          cells,
+          startNumber: ticketNumberingStart,
+        })
+      : null;
   const title =
     category === 'wristband'
       ? t.wristbands
@@ -201,6 +225,50 @@ export function OrderPrintSheet({
           </tr>
         </tfoot>
       </table>
+
+      {numbering && (
+        <div style={{ breakBefore: 'page', pageBreakBefore: 'always', marginTop: '4mm' }}>
+          <div className="dns-print-document-header">
+            <div className="dns-print-document-heading">
+              <div className="dns-print-title">{t.numbering}</div>
+              <div className="dns-print-meta">
+                WS {seasonId} · {t.nextNumber}: {formatTicketNumber(numbering.nextNumber)}
+              </div>
+            </div>
+          </div>
+          <table className="dns-print-table">
+            <thead>
+              <tr>
+                <th>{t.ticketType}</th>
+                <th>{t.organization}</th>
+                <th className="dns-print-number-header">{t.quantity}</th>
+                <th className="dns-print-number-header">{t.from}</th>
+                <th className="dns-print-number-header">{t.to}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {numbering.rows.map((row) => (
+                <tr key={`${row.itemId}::${row.organizationId}`}>
+                  <td>{row.itemLabel[language]}</td>
+                  <td>{row.organizationLabel}</td>
+                  <td className="dns-print-number">{formatNumber(row.quantity, language)}</td>
+                  <td className="dns-print-number">{formatTicketNumber(row.from)}</td>
+                  <td className="dns-print-number">{formatTicketNumber(row.to)}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr>
+                <th colSpan={2}>{t.total}</th>
+                <th className="dns-print-number">{formatNumber(numbering.totalQuantity, language)}</th>
+                <th colSpan={2} className="dns-print-number">
+                  {t.nextNumber}: {formatTicketNumber(numbering.nextNumber)}
+                </th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
     </section>,
     document.body,
   );
