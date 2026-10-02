@@ -222,7 +222,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
           </div>
           <div className="space-y-2">
             <span className="dns-pill">{t.noWrite}</span>
-            <button type="button" disabled={!canSave || saving} onClick={onSave} className="block rounded-md bg-dns-deep px-4 py-2 text-[11px] font-semibold text-white disabled:opacity-40">
+            <button type="button" disabled={!canSave || saving} onClick={onSave} className="dns-button block disabled:opacity-40" data-variant="primary">
               {saving ? (language === 'de' ? 'Speichern…' : 'Salvataggio…') : (language === 'de' ? 'In Firebase speichern' : 'Salva in Firebase')}
             </button>
             <p role="status" className="max-w-[320px] break-words font-alt text-[11px]">{saveStatus}</p>
@@ -246,7 +246,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
             aria-label={t.areaLabel}
             value={selectedArea}
             onChange={(event) => setSelectedArea(event.target.value)}
-            className="dns-context-selector px-3 py-2 text-[11px] outline-none"
+            className="dns-select dns-context-select px-3 py-2 text-[11px] outline-none"
           >
             {reportingAreas.map((area) => (
               <option key={area.id} value={area.id}>
