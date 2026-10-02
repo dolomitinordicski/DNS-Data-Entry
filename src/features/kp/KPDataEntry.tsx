@@ -34,7 +34,10 @@ type Candidate = {
   partnerCount: number;
 };
 
-const DEFAULT_MILESTONES_2026_27: KpMilestoneDoc[] = KP_MILESTONES_2026_27.map((milestone) => ({ ...milestone }));
+const DEFAULT_MILESTONES_2026_27: KpMilestoneDoc[] = KP_MILESTONES_2026_27.map((milestone) => ({
+  ...milestone,
+  label: milestone.label ?? `Milestone ${milestone.order}`,
+}));
 
 function ids(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
