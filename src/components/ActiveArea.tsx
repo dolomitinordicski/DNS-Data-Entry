@@ -33,7 +33,7 @@ export function ActiveArea({ master, access, developmentMode, permission, langua
     <div className="mt-3 flex flex-wrap items-center gap-3">
       <RegionLogos entityType="reportingArea" entityId={selected.id} />
       <select id="dns-active-area" value={selected.id} onChange={(event) => setSelectedId(event.target.value)}
-        className="dns-context-selector max-w-full px-3 py-2 text-[11px]">
+        className="dns-select dns-context-select max-w-full px-3 py-2 text-[11px]">
         {areas.map((area) => <option key={area.id} value={area.id}>{String(area.canonicalName ?? area.id)}</option>)}
       </select>
     </div>
