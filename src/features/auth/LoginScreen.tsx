@@ -113,7 +113,7 @@ export function LoginScreen({
                 autoComplete="username"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="mt-2 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2.5 font-alt text-[12px] outline-none focus:border-dns-mid"
+                className="dns-input mt-2 font-alt text-[12px]"
               />
             </label>
 
@@ -125,20 +125,20 @@ export function LoginScreen({
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="mt-2 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2.5 font-alt text-[12px] outline-none focus:border-dns-mid"
+                className="dns-input mt-2 font-alt text-[12px]"
               />
             </label>
 
             {error && (
-              <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 font-alt text-[11px] text-red-800">
-                {t.error}
+              <div className="dns-alert" data-variant="error" role="alert">
+                <div className="dns-alert-body">{t.error}</div>
               </div>
             )}
 
             <button
               type="submit"
               disabled={pending}
-              className="w-full rounded-md bg-dns-deep px-4 py-2.5 text-[11px] font-bold uppercase tracking-[.06em] text-white transition hover:bg-dns-mid disabled:opacity-50"
+              className="dns-button w-full" data-variant="primary"
             >
               {pending ? t.pending : t.submit}
             </button>
@@ -153,7 +153,7 @@ export function LoginScreen({
           <button
             type="button"
             onClick={onDevelopmentMode}
-            className="w-full rounded-md border border-dns-mid/25 bg-dns-bg px-4 py-2.5 text-[11px] font-bold uppercase tracking-[.06em] text-dns-deep transition hover:border-dns-mid/50"
+            className="dns-button w-full" data-variant="secondary"
           >
             {t.devMode}
           </button>

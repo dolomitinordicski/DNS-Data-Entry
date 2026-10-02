@@ -248,7 +248,7 @@ export function AreaOrderForm({
                             : Math.max(0, Math.trunc(Number(event.target.value))),
                         )
                       }
-                      className="mt-3 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-right font-alt text-[13px] text-dns-deep outline-none focus:border-dns-mid disabled:bg-dns-bg disabled:text-dns-muted"
+                      className="dns-input mt-3 text-right font-alt text-[13px]"
                     />
                   </label>
                 );
@@ -276,7 +276,7 @@ export function AreaOrderForm({
             type="button"
             onClick={onSaveDraft}
             disabled={!canWrite || saving || !dirty || editableOrganizations.length === 0}
-            className="rounded-md border border-dns-mid/25 bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep disabled:opacity-40"
+            className="dns-button disabled:opacity-40" data-variant="secondary"
           >
             {saving ? t.saving : t.saveDraft}
           </button>
@@ -284,7 +284,7 @@ export function AreaOrderForm({
             type="button"
             onClick={onSubmit}
             disabled={!canWrite || saving || editableOrganizations.length === 0}
-            className="rounded-md bg-dns-deep px-4 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white disabled:opacity-40"
+            className="dns-button disabled:opacity-40" data-variant="primary"
           >
             {saving ? t.saving : t.submit}
           </button>

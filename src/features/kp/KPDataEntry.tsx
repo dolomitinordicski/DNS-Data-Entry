@@ -420,7 +420,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
               rowIndex === index
                 ? { ...row, date: event.target.value, label: event.target.value }
                 : row))}
-            className="mt-2 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-sm disabled:opacity-60" />
+            className="dns-input mt-2 text-sm disabled:opacity-60" />
         </label>)}
       </div>
     </section>
@@ -461,19 +461,19 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
             <input type="number" min="0" step="0.1" value={draft.uniqueNetworkKm}
               disabled={!canEditOrganization(selectedOrganization) || busy}
               onChange={(event) => setDraft((current) => ({ ...current, uniqueNetworkKm: Number(event.target.value) }))}
-              className="mt-1 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-sm" />
+              className="dns-input mt-1 text-sm" />
           </label>
           <label className="text-xs font-semibold text-dns-muted">
             {it ? 'Km potenziali operativi' : 'Operative Potenzial-km'}
             <input type="number" min="0" step="0.1" value={draft.potentialOperationalKm}
               disabled={!canEditOrganization(selectedOrganization) || busy}
               onChange={(event) => setDraft((current) => ({ ...current, potentialOperationalKm: Number(event.target.value) }))}
-              className="mt-1 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-sm" />
+              className="dns-input mt-1 text-sm" />
           </label>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="dns-table">
             <thead><tr>
               <th className="p-2 text-left">{it ? 'Rilevazione' : 'Stichtag'}</th>
               <th className="p-2 text-right">{it ? 'Aperti km' : 'Geöffnet km'}</th>
@@ -506,7 +506,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
                         },
                       }));
                     }}
-                    className="w-24 rounded-md border border-dns-mid/20 bg-white px-2 py-1.5 text-right" />
+                    className="dns-input w-24 py-1.5 text-right" />
                 </td>
                 <td className="p-2 text-right">
                   <input type="number" min="0" max={openedKm} step="0.1" value={value.artificialSnowKm}
@@ -521,7 +521,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
                         },
                       },
                     }))}
-                    className="w-24 rounded-md border border-dns-mid/20 bg-white px-2 py-1.5 text-right" />
+                    className="dns-input w-24 py-1.5 text-right" />
                 </td>
                 <td className="p-2 text-right tabular-nums">{n(mix.naturalSnowKm, language)}</td>
                 <td className="p-2 text-right tabular-nums">
@@ -539,7 +539,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="flex items-center gap-2 text-sm">
+          <label className="dns-check">
             <input type="checkbox" checked={draft.includeInKp}
               disabled={!canEditOrganization(selectedOrganization) || busy}
               onChange={(event) => setDraft((current) => ({ ...current, includeInKp: event.target.checked }))} />
@@ -549,13 +549,13 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
             disabled={!canEditOrganization(selectedOrganization) || busy}
             onChange={(event) => setDraft((current) => ({ ...current, exclusionReason: event.target.value }))}
             placeholder={it ? 'Motivo esclusione' : 'Ausschlussgrund'}
-            className="rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-sm" />}
+            className="dns-input text-sm" />}
         </div>
 
         <textarea value={draft.notes} disabled={!canEditOrganization(selectedOrganization) || busy}
           onChange={(event) => setDraft((current) => ({ ...current, notes: event.target.value }))}
           placeholder={it ? 'Note operative (opzionale)' : 'Operative Notizen (optional)'}
-          className="min-h-20 w-full rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-sm" />
+          className="dns-textarea min-h-20 text-sm" />
 
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-dns-muted">
@@ -590,7 +590,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
       </div>
 
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="dns-table">
           <thead><tr>
             <th className="p-2 text-left">{it ? 'Milestone' : 'Stichtag'}</th>
             <th className="p-2 text-right">{it ? 'Potenziali' : 'Potenzial'}</th>
