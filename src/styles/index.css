@@ -1,25 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap');
 @import "tailwindcss";
 
-@theme inline {
-  --color-dns-deep: var(--dns-foundation-deep);
-  --color-dns-mid: var(--dns-foundation-mid);
-  --color-dns-light: var(--dns-foundation-light);
-  --color-dns-bg: var(--dns-foundation-bg);
-  --color-dns-muted: var(--dns-foundation-muted);
-  --font-display: var(--dns-foundation-font-display);
-  --font-alt: var(--dns-foundation-font-alt);
-}
-
-:root {
-  --dns-foundation-deep: var(--color-dns-deep);
-  --dns-foundation-mid: var(--color-dns-mid);
-  --dns-foundation-light: var(--color-dns-light);
-  --dns-foundation-bg: var(--color-dns-bg);
-  --dns-foundation-muted: var(--color-dns-muted);
-  --dns-foundation-font-display: var(--font-display);
-  --dns-foundation-font-alt: var(--font-alt);
-}
+@config "../../tailwind.config.js";
 
 @layer base {
   * { box-sizing: border-box; }
@@ -197,81 +179,10 @@
 }
 
 
-
-.dns-print-sheet {
-  display: none;
-}
-
+  
+/* Data Entry owns only print extensions that are specific to order documents.
+   Page geometry, shared document header and table styling come from Foundation. */
 @media print {
-  @page {
-    size: A4 landscape;
-    margin: 8mm;
-  }
-
-  html,
-  body {
-    width: auto !important;
-    height: auto !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: visible !important;
-    background: var(--color-dns-surface) !important;
-  }
-
-  #root {
-    display: none !important;
-  }
-
-  body > .dns-print-sheet {
-    display: block !important;
-    position: static !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    color: var(--color-dns-deep) !important;
-    background: var(--color-dns-surface) !important;
-    font-family: var(--font-display);
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
-  .dns-print-document-header {
-    display: flex !important;
-    align-items: center;
-    gap: 5mm;
-    margin: 0 0 4mm;
-    padding: 0 0 3mm;
-    border-bottom: 0.3mm solid var(--color-dns-light);
-  }
-
-  .dns-print-logo {
-    width: auto;
-    height: 10mm;
-    object-fit: contain;
-    flex: 0 0 auto;
-  }
-
-  .dns-print-document-heading {
-    min-width: 0;
-  }
-
-  .dns-print-title {
-    margin: 0;
-    font-size: 11pt;
-    line-height: 1.1;
-    font-weight: 700;
-    color: var(--color-dns-deep);
-  }
-
-  .dns-print-meta {
-    margin-top: 0.8mm;
-    font-family: var(--font-alt);
-    font-size: 7pt;
-    line-height: 1.15;
-    color: var(--color-dns-muted);
-  }
-
   .dns-print-legend {
     display: grid !important;
     grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -295,7 +206,7 @@
     display: block;
     width: 5mm;
     height: 5mm;
-    border: 0.2mm solid color-mix(in srgb, var(--color-dns-deep) 24%, transparent);
+    border: .2mm solid color-mix(in srgb, var(--color-dns-deep) 24%, transparent);
   }
 
   .dns-print-legend-label {
@@ -319,75 +230,12 @@
     color: var(--color-dns-muted);
   }
 
-  .dns-print-table {
-    width: 100% !important;
-    border-collapse: collapse !important;
-    table-layout: fixed !important;
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum";
-  }
-
-  .dns-print-table col.dns-print-col-org {
-    width: 42mm;
-  }
-
-  .dns-print-table col.dns-print-col-total {
-    width: 18mm;
-  }
-
-  .dns-print-table th,
-  .dns-print-table td {
-    border: 0.2mm solid var(--color-dns-border) !important;
-    padding: 1mm 1.2mm !important;
-    vertical-align: middle;
-    font-size: 6.5pt !important;
-    line-height: 1.15 !important;
-    color: var(--color-dns-deep) !important;
-    background: var(--color-dns-surface) !important;
-  }
-
-  .dns-print-table thead {
-    display: table-header-group;
-  }
-
-  .dns-print-table tfoot {
-    display: table-footer-group;
-  }
-
-  .dns-print-table thead th {
-    font-size: 6.5pt !important;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .02em;
-    color: var(--color-dns-deep) !important;
-    background: var(--color-dns-bg) !important;
-  }
-
-  .dns-print-table tbody tr {
-    break-inside: avoid !important;
-    page-break-inside: avoid !important;
-  }
-
-  .dns-print-table tbody td:first-child {
-    font-weight: 600;
-  }
-
-  .dns-print-number,
-  .dns-print-number-header {
-    text-align: right !important;
-  }
-
-  .dns-print-row-total {
-    font-weight: 700;
-  }
-
-  .dns-print-table tfoot th {
-    font-size: 7pt !important;
-    font-weight: 700;
-    color: var(--color-dns-surface) !important;
-    background: var(--color-dns-deep) !important;
-  }
+  .dns-print-table col.dns-print-col-org { width: 42mm; }
+  .dns-print-table col.dns-print-col-total { width: 18mm; }
+  .dns-print-number-header { text-align: right !important; }
+  .dns-print-row-total { font-weight: 700; }
 }
+
 
 /* Shared regional marks retain source colors and aspect ratio. */
 .dns-entity-label { display: flex; align-items: center; gap: .65rem; }
