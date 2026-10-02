@@ -63,7 +63,7 @@ export function LoginScreen({
   }
 
   return (
-    <div className="min-h-screen bg-dns-bg">
+    <div className="flex min-h-screen flex-col bg-dns-bg">
       <header data-dns-tool-header className="bg-dns-deep text-white">
         <div className="dns-tool-header-shell">
           <div className="dns-tool-header-brand">
