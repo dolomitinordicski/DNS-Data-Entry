@@ -29,14 +29,9 @@ import {
 } from './services/auth';
 import { loadDNSCoreMaster } from './services/dnsCore';
 import {
-  applyDNSDesignFallback,
-  dnsRuntimeSignature,
-  loadAndApplyDNSDesignSystem,
-} from './services/designSystem';
-import { DNS_DESIGN_FALLBACK } from './design/fallback';
-import { initDNSToolChromeRuntime } from '@dolomitinordicski/dns-shared-data/ui/tool-chrome';
-import { initDNSFooterRuntime } from '@dolomitinordicski/dns-shared-data/ui/footer';
-import { initDNSUIRuntime } from './services/uiRuntime';
+  initDNSDataEntryFoundation,
+  syncDNSDataEntryFoundationLanguage,
+} from './services/capabilityRuntime';
 import { formatDNSCoreHeaderStatus } from '@dolomitinordicski/dns-shared-data/ui/header-status';
 import type { DNSAccessContext, DNSPermission } from './types/access';
 import type { DNSCoreMaster } from './types/master';
@@ -109,7 +104,6 @@ const copy = {
 } as const;
 
 function App() {
-  useEffect(() => { initDNSFooterRuntime(); }, []);
   const publicShareId = new URLSearchParams(window.location.search).get('share');
 
   const [language, setLanguage] = useState<Language>('de');
@@ -152,41 +146,13 @@ function App() {
       (effectiveAccess.isAdmin || effectiveAccess.permissions.size > 0));
 
   useEffect(() => {
-    let disposed = false;
-    let activeDesignSystem = applyDNSDesignFallback();
-    let disposeRuntime = initDNSUIRuntime(activeDesignSystem);
-
-    void loadAndApplyDNSDesignSystem().then(({ designSystem }) => {
-      if (disposed) return;
-      if (dnsRuntimeSignature(designSystem) !== dnsRuntimeSignature(activeDesignSystem)) {
-        disposeRuntime?.();
-        disposeRuntime = initDNSUIRuntime(designSystem);
-      }
-      activeDesignSystem = designSystem;
-    });
-
-    return () => {
-      disposed = true;
-      disposeRuntime?.();
-    };
+    const foundation = initDNSDataEntryFoundation(language);
+    foundation.refresh();
   }, []);
 
   useEffect(() => {
-    if (!hasToolAccess) return;
-    let chrome: ReturnType<typeof initDNSToolChromeRuntime> | null = null;
-    const frame = window.requestAnimationFrame(() => {
-      chrome = initDNSToolChromeRuntime({
-        navigation: DNS_DESIGN_FALLBACK.navigation,
-        responsive: DNS_DESIGN_FALLBACK.responsive,
-        headerTokens: DNS_DESIGN_FALLBACK.header,
-        motion: DNS_DESIGN_FALLBACK.motion,
-      });
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      chrome?.disconnect();
-    };
-  }, [hasToolAccess]);
+    syncDNSDataEntryFoundationLanguage(language);
+  }, [language]);
 
   useEffect(() => {
     return subscribeToAuth((user) => {

@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { dnsDataEntryCapabilities } from './capabilityRuntime';
 import type { PublicOrderShareDocument } from './publicOrderShares';
 import { buildTicketNumbering, formatTicketNumber } from './ticketNumbering';
 
@@ -203,7 +204,7 @@ export function exportPublicOrderCsv(
   );
 }
 
-export function exportPublicOrderExcel(
+export async function exportPublicOrderExcel(
   share: PublicOrderShareDocument,
   language: Language,
 ) {
@@ -267,7 +268,9 @@ export function exportPublicOrderExcel(
       ...share.snapshot.items.map(() => ({ wch: 24 })),
     ];
     XLSX.utils.book_append_sheet(workbook, sheet, 'Nummerierung');
-    XLSX.writeFile(workbook, `${fileBase(share)}_Nummerierung.xlsx`, {
+    await dnsDataEntryCapabilities.run('export.xlsx', {
+      workbook,
+      filename: `${fileBase(share)}_Nummerierung.xlsx`,
       compression: true,
     });
     return;
@@ -476,7 +479,9 @@ export function exportPublicOrderExcel(
   ];
   XLSX.utils.book_append_sheet(workbook, itemSheet, 'Items');
 
-  XLSX.writeFile(workbook, `${fileBase(share)}.xlsx`, {
+  await dnsDataEntryCapabilities.run('export.xlsx', {
+    workbook,
+    filename: `${fileBase(share)}.xlsx`,
     compression: true,
   });
 }
