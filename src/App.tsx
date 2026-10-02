@@ -35,6 +35,7 @@ import {
 } from './services/designSystem';
 import { DNS_DESIGN_FALLBACK } from './design/fallback';
 import { initDNSToolChromeRuntime } from '@dolomitinordicski/dns-shared-data/ui/tool-chrome';
+import { initDNSFooterRuntime } from '@dolomitinordicski/dns-shared-data/ui/footer';
 import { initDNSUIRuntime } from './services/uiRuntime';
 import { formatDNSCoreHeaderStatus } from '@dolomitinordicski/dns-shared-data/ui/header-status';
 import type { DNSAccessContext, DNSPermission } from './types/access';
@@ -108,6 +109,7 @@ const copy = {
 } as const;
 
 function App() {
+  useEffect(() => { initDNSFooterRuntime(); }, []);
   const publicShareId = new URLSearchParams(window.location.search).get('share');
 
   const [language, setLanguage] = useState<Language>('de');
@@ -645,7 +647,7 @@ function App() {
         </main>
       </div>
 
-      <footer className="mt-6 bg-dns-deep text-white">
+      <footer data-dns-tool-footer className="mt-6 bg-dns-deep text-white">
         <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-8">
           <div className="text-[11px] font-semibold uppercase tracking-[.05em] text-white/80">
             {t.footerMain}
