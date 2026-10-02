@@ -216,7 +216,7 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
     <section className="dns-card p-6">
       <h3 className="dns-section-title">{it ? 'Apertura rete · tre milestone' : 'Netzöffnung · drei Meilensteine'}</h3>
       <div className="mt-4 overflow-x-auto">
-        <table className="w-full text-sm">
+        <table className="dns-table">
           <thead><tr>
             <th className="p-2 text-left">{it ? 'Area' : 'Region'}</th>
             <th className="p-2 text-right">23.12.2025</th>
@@ -288,7 +288,7 @@ export function KPSeasonOverview({ seasonId, language, records = [], reportingAr
             <span className="text-xs text-dns-muted">{areaRecords.length} {it ? 'record' : 'Datensätze'}</span>
           </summary>
           <div className="overflow-x-auto border-t border-dns-mid/10 px-3 py-3">
-            <table className="w-full text-xs">
+            <table className="dns-table">
               <thead><tr>
                 <th className="p-2 text-left">Partner</th>
                 <th className="p-2 text-left">{it ? 'Data' : 'Datum'}</th>
