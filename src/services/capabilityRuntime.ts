@@ -70,8 +70,16 @@ export function initDNSDataEntryFoundation(language: Language = 'de') {
   return foundation;
 }
 
-export function syncDNSDataEntryFoundationLanguage(language: Language) {
-  initDNSDataEntryFoundation(language).setLanguage(language);
+export function setDNSDataEntryLanguage(language: Language) {
+  initDNSDataEntryFoundation().setLanguage(language);
+}
+
+export function getDNSDataEntryLanguage(): Language {
+  return initDNSDataEntryFoundation().getLanguage();
+}
+
+export function subscribeDNSDataEntryLanguage(listener: (language: Language) => void) {
+  return initDNSDataEntryFoundation().subscribeLanguage(listener);
 }
 
 export const dnsDataEntryCapabilities = {
