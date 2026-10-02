@@ -4,6 +4,7 @@ import { loadPricing, savePricing, persistenceMessage } from './services/seasona
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
 import { AccessibilityMount } from './components/AccessibilityMount';
+import { DNSFooter } from './components/DNSFooter';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { DNS_SHARED_BRAND } from './config/brand';
@@ -58,8 +59,6 @@ const copy = {
     flow: ['Bestellungen', 'Verfügbarkeit', 'Verkäufe', 'Analytics', 'FAIR'],
     accounting:
       'XGLA4 bleibt das offizielle Buchhaltungssystem. DNS Data Entry bildet Bestellungen und Billing Preparation als operative Vorstufe ab.',
-    footerMain: 'Dolomiti NordicSki · DNS Data Entry',
-    footerSub: 'Saisonale Operationsdaten · DNS_Core',
     signOut: 'Abmelden',
     noAccessTitle: 'Kein Zugriff freigeschaltet',
     noAccess:
@@ -85,8 +84,6 @@ const copy = {
     flow: ['Ordini', 'Disponibilità', 'Vendite', 'Analytics', 'FAIR'],
     accounting:
       'XGLA4 resta il sistema contabile ufficiale. DNS Data Entry gestisce ordini e Billing Preparation come fase operativa a monte.',
-    footerMain: 'Dolomiti NordicSki · DNS Data Entry',
-    footerSub: 'Dati operativi stagionali · DNS_Core',
     signOut: 'Esci',
     noAccessTitle: 'Accesso non abilitato',
     noAccess:
@@ -324,6 +321,7 @@ function App() {
             </p>
           </section>
         </main>
+        <DNSFooter detail="Access" />
       </div>
     );
   }
@@ -613,16 +611,7 @@ function App() {
         </main>
       </div>
 
-      <footer data-dns-tool-footer className="mt-6 bg-dns-deep text-white">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-8">
-          <div className="text-[11px] font-semibold uppercase tracking-[.05em] text-white/80">
-            {t.footerMain}
-          </div>
-          <div className="font-alt text-[10px] uppercase tracking-[.04em] text-white/60">
-            {t.footerSub} · Data Contracts v{DNS_DATA_CONTRACTS_VERSION} · © 2026
-          </div>
-        </div>
-      </footer>
+      <DNSFooter detail={`DNS_Core · Data Contracts v${DNS_DATA_CONTRACTS_VERSION}`} />
     </div>
   );
 }
