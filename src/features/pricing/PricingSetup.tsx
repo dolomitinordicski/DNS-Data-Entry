@@ -270,7 +270,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
             value={overrideOrg}
             disabled={readOnly}
             onChange={(event) => setOverrideOrg(event.target.value)}
-            className="rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-[11px]"
+            className="dns-select text-[11px]"
           >
             <option value="">{t.selectOrg}</option>
             {organizations.map((org) => (
@@ -284,7 +284,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
             value={overrideProduct}
             disabled={readOnly}
             onChange={(event) => setOverrideProduct(event.target.value)}
-            className="rounded-md border border-dns-mid/20 bg-white px-3 py-2 text-[11px]"
+            className="dns-select text-[11px]"
           >
             <option value="">{t.selectProduct}</option>
             {Object.entries(productLabels).map(([code, label]) => (
