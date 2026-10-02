@@ -1,8 +1,9 @@
 import { RegionLogos } from '../../components/RegionLogos';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { DNS_SHARED_BRAND } from '../../config/brand';
 import { OrderPrintSheet } from './OrderPrintSheet';
 import { DNSFooter } from '../../components/DNSFooter';
+import { AccessibilityMount } from '../../components/AccessibilityMount';
 import {
   loadPublicOrderShare,
   type PublicOrderShareDocument,
@@ -65,6 +66,54 @@ const copy = {
 
 function formatNumber(value: number, language: Language) {
   return value.toLocaleString(language === 'de' ? 'de-DE' : 'it-IT');
+}
+
+function PublicOrderHeader({
+  language,
+  onLanguageChange,
+  children,
+}: {
+  language: Language;
+  onLanguageChange: (language: Language) => void;
+  children?: ReactNode;
+}) {
+  const t = copy[language];
+  return (
+    <header data-dns-tool-header className="no-print bg-dns-deep text-white">
+      <div className="dns-tool-header-shell">
+        <div className="dns-tool-header-brand">
+          <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="dns-tool-header-logo" />
+          <div className="dns-tool-header-identity">
+            <div className="dns-tool-header-title">
+              <strong>DNS</strong> <span className="font-normal">ORDERS</span>
+            </div>
+            <div className="dns-tool-header-subtitle">{t.supplierView}</div>
+          </div>
+        </div>
+        <div className="dns-tool-header-actions">
+          <div className="dns-tool-header-controls">
+            <AccessibilityMount language={language} />
+            <div className="dns-tool-header-language">
+              {(['de', 'it'] as const).map((lang) => (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => onLanguageChange(lang)}
+                  className={[
+                    'border-0 border-b-2 bg-transparent px-1 py-1 text-white',
+                    language === lang ? 'border-white' : 'border-transparent opacity-60',
+                  ].join(' ')}
+                >
+                  {lang.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+          {children}
+        </div>
+      </div>
+    </header>
+  );
 }
 
 export function PublicOrderSharePage({
@@ -176,18 +225,26 @@ export function PublicOrderSharePage({
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-dns-bg">
-        <div className="dns-kicker">{t.loading}</div>
+      <div className="flex min-h-screen flex-col bg-dns-bg">
+        <PublicOrderHeader language={language} onLanguageChange={onLanguageChange} />
+        <main data-dns-shell-main className="flex flex-1 items-center justify-center py-10">
+          <div className="dns-kicker">{t.loading}</div>
+        </main>
+        <DNSFooter tool="DNS ORDERS" detail={t.supplierView} />
       </div>
     );
   }
 
   if (!share || !share.active) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-dns-bg px-5">
-        <section className="dns-card max-w-[620px] p-8 text-center">
-          <div className="dns-section-title">{t.unavailable}</div>
-        </section>
+      <div className="flex min-h-screen flex-col bg-dns-bg">
+        <PublicOrderHeader language={language} onLanguageChange={onLanguageChange} />
+        <main data-dns-shell-main className="flex flex-1 items-center justify-center py-10">
+          <section className="dns-card w-full max-w-[620px] p-8 text-center">
+            <div className="dns-section-title">{t.unavailable}</div>
+          </section>
+        </main>
+        <DNSFooter tool="DNS ORDERS" detail={t.supplierView} />
       </div>
     );
   }
@@ -197,66 +254,35 @@ export function PublicOrderSharePage({
     language === 'de' ? snapshot.title.de : snapshot.title.it;
 
   return (
-    <div className="min-h-screen bg-dns-bg">
-      <header data-dns-tool-header className="no-print bg-dns-deep text-white">
-        <div className="dns-tool-header-shell">
-          <div className="dns-tool-header-brand">
-            <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="dns-tool-header-logo" />
-            <div className="dns-tool-header-identity">
-              <div className="dns-tool-header-title">
-                <strong>DNS</strong> <span className="font-normal">ORDERS</span>
-              </div>
-              <div className="dns-tool-header-subtitle">{t.supplierView}</div>
-            </div>
-          </div>
-          <div className="dns-tool-header-actions">
-            <div className="flex gap-3 text-[10px] font-bold uppercase tracking-[.06em]">
-              {(['de', 'it'] as const).map((lang) => (
-                <button
-                  key={lang}
-                  type="button"
-                  onClick={() => onLanguageChange(lang)}
-                  className={[
-                    'border-0 border-b-2 bg-transparent px-1 py-1 text-white transition',
-                    language === lang
-                      ? 'border-white'
-                      : 'border-transparent opacity-60',
-                  ].join(' ')}
-                >
-                  {lang.toUpperCase()}
-                </button>
-              ))}
-            </div>
-            {share && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => exportPublicOrderCsv(share, language)}
-                  className="rounded-md border border-white/30 bg-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white"
-                >
-                  {t.exportCsv}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportPublicOrderExcel(share, language)}
-                  className="rounded-md border border-white/30 bg-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white"
-                >
-                  {t.exportExcel}
-                </button>
-              </>
-            )}
-            <button
-              type="button"
-              onClick={() => void dnsDataEntryCapabilities.run('print')}
-              className="rounded-md border border-white/30 bg-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white"
-            >
-              {t.print}
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-screen flex-col bg-dns-bg">
+      <PublicOrderHeader language={language} onLanguageChange={onLanguageChange}>
+        <button
+          type="button"
+          onClick={() => void exportPublicOrderCsv(share, language)}
+          className="dns-button border-white/30 bg-transparent text-white"
+          data-variant="secondary"
+        >
+          {t.exportCsv}
+        </button>
+        <button
+          type="button"
+          onClick={() => void exportPublicOrderExcel(share, language)}
+          className="dns-button border-white/30 bg-transparent text-white"
+          data-variant="secondary"
+        >
+          {t.exportExcel}
+        </button>
+        <button
+          type="button"
+          onClick={() => void dnsDataEntryCapabilities.run('print')}
+          className="dns-button border-white/30 bg-transparent text-white"
+          data-variant="secondary"
+        >
+          {t.print}
+        </button>
+      </PublicOrderHeader>
 
-      <main className="order-print-area mx-auto max-w-[1440px] px-5 py-6 md:px-8">
+      <main data-dns-shell-main className="order-print-area mx-auto w-full max-w-[1440px] flex-1 px-5 py-6 md:px-8">
         <OrderPrintSheet
           language={language}
           seasonId={snapshot.seasonId}
