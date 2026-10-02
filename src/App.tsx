@@ -4,6 +4,7 @@ import { loadPricing, savePricing, persistenceMessage } from './services/seasona
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
 import { AccessibilityMount } from './components/AccessibilityMount';
+import { DNSFooter } from './components/DNSFooter';
 import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { DNS_SHARED_BRAND } from './config/brand';
@@ -29,8 +30,10 @@ import {
 } from './services/auth';
 import { loadDNSCoreMaster } from './services/dnsCore';
 import {
+  getDNSDataEntryLanguage,
   initDNSDataEntryFoundation,
-  syncDNSDataEntryFoundationLanguage,
+  setDNSDataEntryLanguage,
+  subscribeDNSDataEntryLanguage,
 } from './services/capabilityRuntime';
 import { formatDNSCoreHeaderStatus } from '@dolomitinordicski/dns-shared-data/ui/header-status';
 import type { DNSAccessContext, DNSPermission } from './types/access';
@@ -58,8 +61,6 @@ const copy = {
     flow: ['Bestellungen', 'Verfügbarkeit', 'Verkäufe', 'Analytics', 'FAIR'],
     accounting:
       'XGLA4 bleibt das offizielle Buchhaltungssystem. DNS Data Entry bildet Bestellungen und Billing Preparation als operative Vorstufe ab.',
-    footerMain: 'Dolomiti NordicSki · DNS Data Entry',
-    footerSub: 'Saisonale Operationsdaten · DNS_Core',
     signOut: 'Abmelden',
     noAccessTitle: 'Kein Zugriff freigeschaltet',
     noAccess:
@@ -85,8 +86,6 @@ const copy = {
     flow: ['Ordini', 'Disponibilità', 'Vendite', 'Analytics', 'FAIR'],
     accounting:
       'XGLA4 resta il sistema contabile ufficiale. DNS Data Entry gestisce ordini e Billing Preparation come fase operativa a monte.',
-    footerMain: 'Dolomiti NordicSki · DNS Data Entry',
-    footerSub: 'Dati operativi stagionali · DNS_Core',
     signOut: 'Esci',
     noAccessTitle: 'Accesso non abilitato',
     noAccess:
@@ -106,7 +105,7 @@ const copy = {
 function App() {
   const publicShareId = new URLSearchParams(window.location.search).get('share');
 
-  const [language, setLanguage] = useState<Language>('de');
+  const [language, setLanguage] = useState<Language>(() => getDNSDataEntryLanguage());
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<ModuleId>('season');
   const [master, setMaster] = useState<DNSCoreMaster | null>(null);
@@ -146,13 +145,12 @@ function App() {
       (effectiveAccess.isAdmin || effectiveAccess.permissions.size > 0));
 
   useEffect(() => {
-    const foundation = initDNSDataEntryFoundation(language);
+    const foundation = initDNSDataEntryFoundation();
+    setLanguage(foundation.getLanguage());
+    const unsubscribe = subscribeDNSDataEntryLanguage(setLanguage);
     foundation.refresh();
+    return unsubscribe;
   }, []);
-
-  useEffect(() => {
-    syncDNSDataEntryFoundationLanguage(language);
-  }, [language]);
 
   useEffect(() => {
     return subscribeToAuth((user) => {
@@ -170,7 +168,7 @@ function App() {
         .then((context) => {
           setAccess(context);
           if (context.profile?.preferredLanguage === 'de' || context.profile?.preferredLanguage === 'it') {
-            setLanguage(context.profile.preferredLanguage);
+            setDNSDataEntryLanguage(context.profile.preferredLanguage);
           }
         })
         .catch((error) => {
@@ -265,7 +263,7 @@ function App() {
   }, [allowedModules, activeModule]);
 
   if (publicShareId) {
-    return <PublicOrderSharePage shareId={publicShareId} />;
+    return <PublicOrderSharePage shareId={publicShareId} language={language} onLanguageChange={setDNSDataEntryLanguage} />;
   }
 
   if (!authReady && !developmentMode) {
@@ -280,7 +278,7 @@ function App() {
     return (
       <LoginScreen
         language={language}
-        onLanguageChange={setLanguage}
+        onLanguageChange={setDNSDataEntryLanguage}
         onDevelopmentMode={() => {
           sessionStorage.setItem('dns-development-mode', '1');
           sessionStorage.setItem('dns-dev-persona', 'admin');
@@ -296,26 +294,49 @@ function App() {
   if (!hasAccess) {
     return (
       <div className="flex min-h-screen flex-col bg-dns-bg">
-        <header className="bg-dns-deep text-white">
-          <div className="mx-auto flex max-w-[1440px] items-center justify-between px-5 py-3.5 md:px-8">
+        <header data-dns-tool-header className="bg-dns-deep text-white">
+          <div className="dns-tool-header-shell">
             <div className="dns-tool-header-brand">
-              <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="h-10 w-auto" />
-              <div className="text-[22px] uppercase tracking-[.035em]">
-                <strong>DNS</strong> <span className="font-normal">DATA ENTRY</span>
+              <img src={DNS_SHARED_BRAND.webLogoUrl} alt="Dolomiti NordicSki" className="dns-tool-header-logo" />
+              <div className="dns-tool-header-identity">
+                <div className="dns-tool-header-title">
+                  <strong>DNS</strong> <span className="font-normal">DATA ENTRY</span>
+                </div>
+                <div className="dns-tool-header-subtitle">{t.noAccessTitle}</div>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={leaveSession}
-              data-dns-press
-              data-dns-hover
-              className="border-0 border-b border-white/50 bg-transparent px-1 py-1 text-[10px] font-bold uppercase tracking-[.06em] text-white"
-            >
-              {developmentMode ? t.exitDev : t.signOut}
-            </button>
+            <div className="dns-tool-header-actions">
+              <div className="dns-tool-header-controls">
+                <AccessibilityMount language={language} />
+                <div className="dns-tool-header-language">
+                  {(['de', 'it'] as const).map((lang) => (
+                    <button
+                      key={lang}
+                      type="button"
+                      onClick={() => setDNSDataEntryLanguage(lang)}
+                      className={[
+                        'border-0 border-b-2 bg-transparent px-1 py-1 text-white',
+                        language === lang ? 'border-white' : 'border-transparent opacity-60',
+                      ].join(' ')}
+                    >
+                      {lang.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={leaveSession}
+                data-dns-press
+                data-dns-hover
+                className="dns-tool-header-session-action hover:text-white"
+              >
+                {developmentMode ? t.exitDev : t.signOut}
+              </button>
+            </div>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-12 md:px-8">
+        <main data-dns-shell-main className="mx-auto w-full max-w-[760px] flex-1 px-5 py-12 md:px-8">
           <section className="dns-card p-6 md:p-8">
             <div className="dns-kicker">{authUser?.email ?? authUser?.uid}</div>
             <h1 className="mt-1 text-[26px] font-semibold">{t.noAccessTitle}</h1>
@@ -324,6 +345,7 @@ function App() {
             </p>
           </section>
         </main>
+        <DNSFooter detail={t.noAccessTitle} />
       </div>
     );
   }
@@ -391,7 +413,7 @@ function App() {
                 <button
                   key={lang}
                   type="button"
-                  onClick={() => setLanguage(lang)}
+                  onClick={() => setDNSDataEntryLanguage(lang)}
                   data-dns-press
                   className={[
                     'border-0 border-b-2 bg-transparent px-1 py-1 text-white',
@@ -487,7 +509,7 @@ function App() {
       </nav>
 
 
-      <div className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-5 md:px-8">
+      <div data-dns-shell-main className="mx-auto w-full max-w-[1440px] flex-1 px-5 py-5 md:px-8">
         <main className="space-y-5">
           <section className="dns-card p-5 md:p-6" data-dns-reveal>
             <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
@@ -613,16 +635,7 @@ function App() {
         </main>
       </div>
 
-      <footer data-dns-tool-footer className="mt-6 bg-dns-deep text-white">
-        <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-1 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-8">
-          <div className="text-[11px] font-semibold uppercase tracking-[.05em] text-white/80">
-            {t.footerMain}
-          </div>
-          <div className="font-alt text-[10px] uppercase tracking-[.04em] text-white/60">
-            {t.footerSub} · Data Contracts v{DNS_DATA_CONTRACTS_VERSION} · © 2026
-          </div>
-        </div>
-      </footer>
+      <DNSFooter detail={`DNS_Core · Data Contracts v${DNS_DATA_CONTRACTS_VERSION}`} />
     </div>
   );
 }

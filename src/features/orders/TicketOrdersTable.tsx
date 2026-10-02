@@ -563,7 +563,7 @@ export function TicketOrdersTable({
   async function copyShare() {
     if (!shareUrl) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      await dnsDataEntryCapabilities.run('clipboard.copy', { text: shareUrl });
     } catch (reason) {
       console.warn('Clipboard unavailable', reason);
     }

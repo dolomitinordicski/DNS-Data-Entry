@@ -9,36 +9,6 @@
   --color-dns-muted: #718990;
   --font-display: "Be Vietnam Pro", sans-serif;
   --font-alt: "Roboto", sans-serif;
-  --dns-card-radius: 10px;
-  --dns-control-radius: 6px;
-  --dns-card-shadow: 0 1px 4px rgba(13,77,94,.07);
-  --dns-header-shadow: 0 1px 0 rgba(255,255,255,.08);
-  --dns-motion-fast: 200ms;
-  --dns-motion-standard: 300ms;
-  --dns-motion-reveal: 600ms;
-  --dns-motion-easing: ease;
-  --dns-context-selected-bg: #AAD0D1;
-  --dns-context-selected-text: #0D4D5E;
-  --dns-context-selected-border: #417483;
-  --dns-context-hover-bg: rgba(170,208,209,.35);
-  --dns-context-hover-border: rgba(65,116,131,.35);
-  --dns-context-focus-color: #417483;
-  --dns-context-focus-width: 2px;
-  --dns-context-focus-offset: 2px;
-  --dns-tab-bg: #417483;
-  --dns-tab-text: rgba(255,255,255,.60);
-  --dns-tab-active: #FFFFFF;
-  --dns-tab-hover: rgba(255,255,255,.85);
-  --dns-tab-indicator: #FFFFFF;
-  --dns-tab-indicator-width: 3px;
-  --dns-tab-size: 11px;
-  --dns-tab-weight: 600;
-  --dns-tab-tracking: .06em;
-  --dns-nav-surface-bg: rgba(65,116,131,.94);
-  --dns-nav-backdrop-blur: 6px;
-  --dns-scroll-progress-height: 3px;
-  --dns-scroll-progress-color: #AAD0D1;
-  --dns-scroll-progress-track: transparent;
 }
 
 @layer base {
@@ -55,8 +25,8 @@
 @layer components {
   .dns-card {
     background: var(--color-dns-surface, #fff);
-    border-radius: var(--dns-card-radius);
-    box-shadow: var(--dns-card-shadow);
+    border-radius: var(--dns-card-radius, 10px);
+    box-shadow: var(--dns-card-shadow, 0 1px 4px rgba(13,77,94,.07));
   }
 
   .dns-section-title {
