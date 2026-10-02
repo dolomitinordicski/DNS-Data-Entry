@@ -145,6 +145,30 @@ export function PublicOrderSharePage({
     });
   }, [share]);
 
+  const numberingRanges = useMemo(
+    () =>
+      new Map(
+        (numbering?.rows ?? []).map((row) => [
+          `${row.organizationId}::${row.itemId}`,
+          `${formatTicketNumber(row.from)} - ${formatTicketNumber(row.to)}`,
+        ]),
+      ),
+    [numbering],
+  );
+
+  const numberingTotals = useMemo(
+    () =>
+      new Map(
+        (share?.snapshot.items ?? []).map((item) => [
+          item.id,
+          (numbering?.rows ?? [])
+            .filter((row) => row.itemId === item.id)
+            .reduce((sum, row) => sum + row.quantity, 0),
+        ]),
+      ),
+    [share, numbering],
+  );
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-dns-bg">
@@ -309,6 +333,66 @@ export function PublicOrderSharePage({
               </div>
             </div>
             <div className="overflow-x-auto">
+              <table className="w-full min-w-[1220px] border-collapse">
+                <thead>
+                  <tr className="border-b border-dns-mid/15 bg-dns-bg text-left text-[9px] uppercase tracking-[.04em] text-dns-mid">
+                    <th className="sticky left-0 z-10 min-w-[220px] bg-dns-bg px-4 py-3">{t.organization}</th>
+                    {snapshot.items.map((item) => (
+                      <th key={item.id} className="min-w-[145px] px-3 py-3 text-center">
+                        {language === 'de' ? item.label.de : item.label.it}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {snapshot.organizations.map((organization) => (
+                    <tr key={organization.organizationId} className="border-b border-dns-mid/10">
+                      <td className="sticky left-0 z-10 bg-white px-4 py-2.5 text-[11px] font-semibold">
+                        {organization.sourceLabel}
+                      </td>
+                      {snapshot.items.map((item) => (
+                        <td key={item.id} className="px-3 py-2.5 text-center font-alt text-[10px] tabular-nums">
+                          {numberingRanges.get(`${organization.organizationId}::${item.id}`) ?? ''}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-dns-mid bg-dns-deep text-white">
+                    <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[.06em]">
+                      Kontroll TOT
+                    </th>
+                    {snapshot.items.map((item) => (
+                      <th key={item.id} className="px-3 py-3 text-center text-[11px] font-bold">
+                        {formatNumber(numberingTotals.get(item.id) ?? 0, language)}
+                      </th>
+                    ))}
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <div className="border-t border-dns-mid/10 px-5 py-4 text-right font-alt text-[11px]">
+              <strong>{t.nextNumber}:</strong>{' '}
+              <span className="tabular-nums">{formatTicketNumber(numbering.nextNumber)}</span>
+            </div>
+          </section>
+        )}
+
+        {snapshot.category !== 'ticket' && (
+        <section className="dns-card mt-5 overflow-hidden print-flat">
+            <div className="flex flex-col gap-3 border-b border-dns-mid/10 p-5 md:flex-row md:items-end md:justify-between md:p-6">
+              <div>
+                <div className="dns-section-title">{t.numbering}</div>
+                <div className="mt-2 font-alt text-[10px] text-dns-muted">
+                  {t.startNumber}: <strong className="text-dns-deep">{formatTicketNumber(numbering.startNumber)}</strong>
+                </div>
+              </div>
+              <div className="dns-pill">
+                {t.nextNumber}: {formatTicketNumber(numbering.nextNumber)}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] border-collapse">
                 <thead>
                   <tr className="border-b border-dns-mid/15 bg-dns-bg text-left text-[9px] uppercase tracking-[.05em] text-dns-mid">
@@ -435,6 +519,7 @@ export function PublicOrderSharePage({
             </table>
           </div>
         </section>
+        )}
       </main>
     </div>
   );
