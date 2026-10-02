@@ -345,7 +345,7 @@ function App() {
             </p>
           </section>
         </main>
-        <DNSFooter detail="Access" />
+        <DNSFooter detail={t.noAccessTitle} />
       </div>
     );
   }
