@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { PublicOrderShareDocument } from './publicOrderShares';
+import { buildTicketNumbering, formatTicketNumber } from './ticketNumbering';
 
 type Language = 'de' | 'it';
 
@@ -70,6 +71,21 @@ export function exportPublicOrderCsv(
 ) {
   const q = quantities(share);
   const exportedAt = exportTimestamp();
+  const numbering =
+    share.snapshot.category === 'ticket' && share.snapshot.ticketNumberingStart
+      ? buildTicketNumbering({
+          items: share.snapshot.items,
+          organizations: share.snapshot.organizations,
+          cells: share.snapshot.cells,
+          startNumber: share.snapshot.ticketNumberingStart,
+        })
+      : null;
+  const numberingByCell = new Map(
+    (numbering?.rows ?? []).map((row) => [
+      `${row.organizationId}::${row.itemId}`,
+      row,
+    ]),
+  );
   const rows: unknown[][] = [[
     'Snapshot timestamp',
     'Export timestamp',
@@ -85,12 +101,18 @@ export function exportPublicOrderCsv(
     'Item code',
     'Back language',
     'Quantity',
+    'Number from',
+    'Number to',
   ]];
 
   for (const organization of share.snapshot.organizations) {
     for (const item of share.snapshot.items) {
       const quantity = q.get(`${organization.organizationId}::${item.id}`);
       if (quantity === null || quantity === undefined || quantity <= 0) continue;
+
+      const numberingRow = numberingByCell.get(
+        `${organization.organizationId}::${item.id}`,
+      );
 
       rows.push([
         share.snapshot.generatedAt,
@@ -107,6 +129,8 @@ export function exportPublicOrderCsv(
         item.code,
         item.pocketfolder?.backLanguageOrder ?? '',
         quantity,
+        numberingRow ? formatTicketNumber(numberingRow.from) : '',
+        numberingRow ? formatTicketNumber(numberingRow.to) : '',
       ]);
     }
   }
@@ -194,6 +218,48 @@ export function exportPublicOrderExcel(
   ];
   XLSX.utils.book_append_sheet(workbook, orderSheet, 'Order');
 
+  if (
+    share.snapshot.category === 'ticket' &&
+    share.snapshot.ticketNumberingStart
+  ) {
+    const numbering = buildTicketNumbering({
+      items: share.snapshot.items,
+      organizations: share.snapshot.organizations,
+      cells: share.snapshot.cells,
+      startNumber: share.snapshot.ticketNumberingStart,
+    });
+    const numberingRows: unknown[][] = [
+      ['Ticket type', 'Code', 'Organization', 'Quantity', 'From', 'To'],
+      ...numbering.rows.map((row) => [
+        language === 'de' ? row.itemLabel.de : row.itemLabel.it,
+        row.itemCode,
+        row.organizationLabel,
+        row.quantity,
+        formatTicketNumber(row.from),
+        formatTicketNumber(row.to),
+      ]),
+      [
+        'NEXT START',
+        '',
+        '',
+        numbering.totalQuantity,
+        '',
+        formatTicketNumber(numbering.nextNumber),
+      ],
+    ];
+    const numberingSheet = XLSX.utils.aoa_to_sheet(numberingRows);
+    numberingSheet['!freeze'] = { ySplit: 1 };
+    numberingSheet['!cols'] = [
+      { wch: 30 },
+      { wch: 18 },
+      { wch: 32 },
+      { wch: 14 },
+      { wch: 16 },
+      { wch: 16 },
+    ];
+    XLSX.utils.book_append_sheet(workbook, numberingSheet, 'Numbering');
+  }
+
   if (share.snapshot.category === 'pocketfolder') {
     const distributionRows: unknown[][] = [[
       'Snapshot timestamp',
@@ -250,6 +316,20 @@ export function exportPublicOrderExcel(
     ['Season', share.snapshot.seasonId],
     ['Category', share.snapshot.category],
     ['Total quantity', share.snapshot.totalQuantity],
+    ...(share.snapshot.ticketNumberingStart
+      ? [
+          ['Ticket numbering start', share.snapshot.ticketNumberingStart],
+          [
+            'Ticket numbering next start',
+            buildTicketNumbering({
+              items: share.snapshot.items,
+              organizations: share.snapshot.organizations,
+              cells: share.snapshot.cells,
+              startNumber: share.snapshot.ticketNumberingStart,
+            }).nextNumber,
+          ],
+        ]
+      : []),
     ['Generated from', 'DNS Data Entry / public supplier snapshot'],
   ]);
   metaSheet['!cols'] = [{ wch: 28 }, { wch: 52 }];
