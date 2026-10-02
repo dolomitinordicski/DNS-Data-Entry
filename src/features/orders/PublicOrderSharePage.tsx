@@ -11,6 +11,7 @@ import {
   exportPublicOrderExcel,
 } from '../../services/orderExport';
 import { buildTicketNumbering, formatTicketNumber } from '../../services/ticketNumbering';
+import { dnsDataEntryCapabilities } from '../../services/capabilityRuntime';
 
 type Language = 'de' | 'it';
 
@@ -244,7 +245,7 @@ export function PublicOrderSharePage({
             )}
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => void dnsDataEntryCapabilities.run('print')}
               className="rounded-md border border-white/30 bg-transparent px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-white"
             >
               {t.print}

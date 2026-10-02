@@ -25,6 +25,29 @@ const xlsxAdapter: DNSCapabilityAdapter<{
   },
 };
 
+const csvAdapter: DNSCapabilityAdapter<{
+  filename: string;
+  text: string;
+  mimeType?: string;
+}> = {
+  id: 'dns-data-entry-csv',
+  capabilities: ['export.csv'],
+  execute(input) {
+    const blob = new Blob([input.text], {
+      type: input.mimeType ?? 'text/csv;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = input.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    return { filename: input.filename, size: blob.size };
+  },
+};
+
 let foundation: DNSFoundationRuntimeHandle | null = null;
 
 export function initDNSDataEntryFoundation(language: Language = 'de') {
@@ -32,9 +55,13 @@ export function initDNSDataEntryFoundation(language: Language = 'de') {
     foundation = initDNSFoundation({
       language,
       shellProfile: 'operational',
-      capabilities: ['export.xlsx', 'print'],
-      capabilityAdapters: [xlsxAdapter],
-      accessibility: false,
+      capabilities: ['export.csv', 'export.xlsx', 'print'],
+      capabilityAdapters: [csvAdapter, xlsxAdapter],
+      accessibility: {
+        enabled: true,
+        mountSelector: '[data-dns-accessibility-mount]',
+        storageKey: 'dns-accessibility-v1',
+      },
     });
   } else if (foundation.getLanguage() !== language) {
     foundation.setLanguage(language);
@@ -48,7 +75,7 @@ export function syncDNSDataEntryFoundationLanguage(language: Language) {
 }
 
 export const dnsDataEntryCapabilities = {
-  run<T = unknown>(capability: 'export.xlsx' | 'print', input?: unknown) {
+  run<T = unknown>(capability: 'export.csv' | 'export.xlsx' | 'print', input?: unknown) {
     return initDNSDataEntryFoundation().capabilityRuntime.run<T>(capability, input);
   },
 };

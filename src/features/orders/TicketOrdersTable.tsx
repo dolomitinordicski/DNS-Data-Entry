@@ -20,6 +20,7 @@ import {
 } from '../../services/publicOrderShares';
 import { AreaOrderForm } from './AreaOrderForm';
 import { buildTicketNumbering, formatTicketNumber } from '../../services/ticketNumbering';
+import { dnsDataEntryCapabilities } from '../../services/capabilityRuntime';
 import { OrderPrintSheet } from './OrderPrintSheet';
 import { PocketfolderSourceView } from './PocketfolderSourceView';
 import { WireIcon } from '../../components/WireIcon';
@@ -761,7 +762,7 @@ export function TicketOrdersTable({
             <div className="no-print flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => void dnsDataEntryCapabilities.run('print')}
                 className="inline-flex items-center gap-2 rounded-md border border-dns-mid/25 bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-[.05em] text-dns-deep"
               >
                 <WireIcon name="print" size={14} />
