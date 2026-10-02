@@ -54,19 +54,7 @@ function csvEscape(value: unknown) {
   return `"${text.replaceAll('"', '""')}"`;
 }
 
-function downloadText(filename: string, content: string, mime: string) {
-  const blob = new Blob([content], { type: mime });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
-
-export function exportPublicOrderCsv(
+export async function exportPublicOrderCsv(
   share: PublicOrderShareDocument,
   language: Language,
 ) {
@@ -119,11 +107,11 @@ export function exportPublicOrderCsv(
     const csv =
       '\uFEFF' +
       rows.map((row) => row.map(csvEscape).join(';')).join('\r\n');
-    downloadText(
-      `${fileBase(share)}_Nummerierung.csv`,
-      csv,
-      'text/csv;charset=utf-8',
-    );
+    await dnsDataEntryCapabilities.run('export.csv', {
+      filename: `${fileBase(share)}_Nummerierung.csv`,
+      text: csv,
+      mimeType: 'text/csv;charset=utf-8',
+    });
     return;
   }
 
@@ -197,11 +185,11 @@ export function exportPublicOrderCsv(
     '\uFEFF' +
     rows.map((row) => row.map(csvEscape).join(';')).join('\r\n');
 
-  downloadText(
-    `${fileBase(share)}.csv`,
-    csv,
-    'text/csv;charset=utf-8',
-  );
+  await dnsDataEntryCapabilities.run('export.csv', {
+    filename: `${fileBase(share)}.csv`,
+    text: csv,
+    mimeType: 'text/csv;charset=utf-8',
+  });
 }
 
 export async function exportPublicOrderExcel(
