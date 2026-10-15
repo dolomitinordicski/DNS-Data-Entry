@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { checkCollectiveOrder, type CollectiveOrder } from './model';
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { checkCollectiveOrder, type CollectiveOrder } from './model.ts';
 
 function fixture(): CollectiveOrder {
   return {
@@ -32,7 +33,7 @@ function fixture(): CollectiveOrder {
 describe('collective order source validation', () => {
   it('accepts the source control totals without performing billing', () => {
     const result = checkCollectiveOrder(fixture());
-    expect(result).toEqual({
+    assert.deepEqual(result,{
       ok: true, errors: [],
       unitsByCatalogItem: {'jacket-standard': 33, 'jacket-control': 27},
       supplierTotalCents: 991000,
@@ -42,32 +43,32 @@ describe('collective order source validation', () => {
     for (const quantity of [-1, 1.5, Number.NaN]) {
       const order = fixture();
       order.lines[0].quantity = quantity;
-      expect(checkCollectiveOrder(order).errors).toContain('invalid-quantity:line-standard');
+      assert.ok(checkCollectiveOrder(order).errors.includes('invalid-quantity:line-standard'));
     }
   });
   it('rejects duplicated line IDs and supplier cost IDs', () => {
     const order = fixture();
     order.lines[1].id = order.lines[0].id;
     order.supplierCosts[1].id = order.supplierCosts[0].id;
-    expect(checkCollectiveOrder(order).errors).toContain('duplicate-line-id:line-standard');
-    expect(checkCollectiveOrder(order).errors).toContain('duplicate-supplier-cost:supplier-standard');
+    assert.ok(checkCollectiveOrder(order).errors.includes('duplicate-line-id:line-standard'));
+    assert.ok(checkCollectiveOrder(order).errors.includes('duplicate-supplier-cost:supplier-standard'));
   });
   it('rejects supplier amounts without a matching document', () => {
     const order = fixture();
     order.supplierCosts[0].sourceDocumentId = 'unknown';
-    expect(checkCollectiveOrder(order).errors).toContain('invalid-supplier-cost:supplier-standard');
+    assert.ok(checkCollectiveOrder(order).errors.includes('invalid-supplier-cost:supplier-standard'));
   });
   it('requires separate purchasing, billing, and recipient identities', () => {
     const order = fixture();
     order.lines[0].participant.billedOrganizationId = '';
-    expect(checkCollectiveOrder(order).errors).toContain('incomplete-line:line-standard');
+    assert.ok(checkCollectiveOrder(order).errors.includes('incomplete-line:line-standard'));
   });
   it('rejects invalid revision and missing supplier documents', () => {
     const order = fixture();
     order.sourceRevision = 0;
     order.supplierDocumentIds = [];
     const errors = checkCollectiveOrder(order).errors;
-    expect(errors).toContain('invalid-source-revision');
-    expect(errors).toContain('missing-supplier-documents');
+    assert.ok(errors.includes('invalid-source-revision'));
+    assert.ok(errors.includes('missing-supplier-documents'));
   });
 });
