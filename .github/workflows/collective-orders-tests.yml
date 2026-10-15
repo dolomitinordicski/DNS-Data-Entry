@@ -1,0 +1,24 @@
+name: Collective Orders Validation
+
+on:
+  pull_request:
+    paths:
+      - 'src/features/collective-orders/**'
+      - 'package.json'
+      - 'tsconfig.app.json'
+      - '.github/workflows/collective-orders-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-collective-orders:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate collective orders (no Firebase access)
+        run: npm run test:collective-orders
