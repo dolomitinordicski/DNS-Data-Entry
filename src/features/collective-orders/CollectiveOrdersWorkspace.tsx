@@ -1,10 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { createCollectiveOrderHeader, updateCollectiveOrderHeader, listCollectiveOrderHeaders } from './headerPersistence';
+import { validHeaderInput, type CollectiveOrderHeader } from './headerValidation';
 import { checkCollectiveOrder, type CollectiveOrder, type CollectiveOrderLine } from './model';
 import { checkAllocations } from './allocation';
 import type { CanonicalRecord } from '../../types/master';
 
 type Language = 'de' | 'it';
-type Props = { language: Language; seasonId: string; organizations: CanonicalRecord[]; isAdmin: boolean };
+type Props = { language: Language; seasonId: string; organizations: CanonicalRecord[]; isAdmin: boolean; currentUserId: string | null };
 
 const copy = {
   de: {
@@ -21,6 +23,9 @@ const copy = {
     noSave: 'Keine Live-Schreibrechte. Daten gehen beim Neuladen verloren.',
     unavailable: 'Die Bearbeitung von Sammelbestellungen ist derzeit nur für DNS Admin vorbereitet.',
     empty: 'Bitte mindestens eine Artikelposition und gültige Organisationen erfassen.',
+    save: 'Bestellkopf speichern', saved: 'Bestellkopf in DNS_Core gespeichert. Positionen sind noch lokal!', saving: 'Speichert…',
+    orderId: 'Bestell-ID', documents: 'Lieferantenbelege (durch Komma getrennt)', load: 'Gespeicherte Bestellungen',
+    select: 'Bestellkopf laden', error: 'Speichern fehlgeschlagen', headerOnly: 'Achtung: Nur Projekt, Lieferant und Belegreferenzen werden gespeichert. Artikel/Zuordnungen werden NICHT gespeichert.',
   },
   it: {
     title: 'Ordini collettivi', intro: 'Acquisti condivisi, separati dalla matrice stagionale delle tessere.',
@@ -36,6 +41,9 @@ const copy = {
     noSave: 'Nessuna scrittura live. I dati si perdono ricaricando la pagina.',
     unavailable: 'La modifica degli ordini collettivi è per ora predisposta soltanto per DNS Admin.',
     empty: 'Inserisci almeno una posizione articolo e organizzazioni valide.',
+    save: 'Salva intestazione', saved: 'Intestazione salvata in DNS_Core. Le posizioni sono ancora locali!', saving: 'Salvataggio…',
+    orderId: 'ID ordine', documents: 'Riferimenti documenti fornitore (separati da virgola)', load: 'Ordini salvati',
+    select: 'Carica intestazione', error: 'Salvataggio fallito', headerOnly: 'Attenzione: vengono salvati solo progetto, fornitore e riferimenti documentali. Articoli e assegnazioni NON vengono salvati.',
   },
 } as const;
 
@@ -50,13 +58,55 @@ function newLine(index: number, orgId: string): CollectiveOrderLine {
   };
 }
 
-export function CollectiveOrdersWorkspace({language,seasonId,organizations,isAdmin}:Props) {
+export function CollectiveOrdersWorkspace({language,seasonId,organizations,isAdmin,currentUserId}:Props) {
   const t = copy[language];
   const [title,setTitle]=useState('');
+  const [orderId,setOrderId]=useState('');
+  const [documentRefs,setDocumentRefs]=useState('');
+  const [savedHeader,setSavedHeader]=useState<CollectiveOrderHeader|null>(null);
+  const [headers,setHeaders]=useState<CollectiveOrderHeader[]>([]);
+  const [busy,setBusy]=useState(false);
+  const [saveMessage,setSaveMessage]=useState('');
   const [supplier,setSupplier]=useState('');
   const [lines,setLines]=useState<CollectiveOrderLine[]>([]);
   const [validated,setValidated]=useState(false);
   const [nextId,setNextId]=useState(1);
+  useEffect(() => {
+    if (!isAdmin || !currentUserId) return;
+    let active=true;
+    listCollectiveOrderHeaders().then(rows=>{if(active)setHeaders(rows.filter(row=>row.seasonId===seasonId));})
+      .catch(error=>{if(active)setSaveMessage(String(error));});
+    return ()=>{active=false;};
+  },[isAdmin,currentUserId,seasonId]);
+  const refs=()=>documentRefs.split(',').map(value=>value.trim()).filter(Boolean);
+  async function persistHeader() {
+    if (!isAdmin || !currentUserId || busy) return;
+    const header: CollectiveOrderHeader={
+      id:orderId.trim(), seasonId, title:title.trim(), supplierId:supplier.trim(),
+      status:'draft', sourceRevision:savedHeader?savedHeader.sourceRevision+1:1,
+      supplierDocumentIds:refs(),
+    };
+    const errors=validHeaderInput(header);
+    if (errors.length){setSaveMessage(errors.join(', '));return;}
+    setBusy(true);setSaveMessage('');
+    try {
+      if(savedHeader) {
+        if(savedHeader.id!==header.id || savedHeader.status!=='draft') throw new Error('cannot-edit-locked-or-renamed-order');
+        await updateCollectiveOrderHeader(header,savedHeader.sourceRevision,currentUserId);
+      } else await createCollectiveOrderHeader(header,currentUserId);
+      setSavedHeader(header);
+      setHeaders(rows=>[...rows.filter(row=>row.id!==header.id),header]);
+      setSaveMessage(t.saved);
+    } catch(error) {setSaveMessage(t.error+': '+String(error));}
+    finally {setBusy(false);}
+  }
+  function loadHeader(id:string) {
+    const header=headers.find(row=>row.id===id);
+    if(!header)return;
+    setSavedHeader(header);setOrderId(header.id);setTitle(header.title);
+    setSupplier(header.supplierId);setDocumentRefs(header.supplierDocumentIds.join(', '));
+    setLines([]);setSaveMessage(t.headerOnly);setValidated(false);
+  }
   const organizationIds=useMemo(()=>organizations.map(o=>o.id),[organizations]);
   const options=useMemo(()=>organizations.map(o=>({id:o.id,label:
     String((o as CanonicalRecord & {canonicalName?:string}).canonicalName ?? o.id)})),[organizations]);
@@ -91,10 +141,33 @@ export function CollectiveOrdersWorkspace({language,seasonId,organizations,isAdm
         <p className="mt-2 text-xs text-dns-muted">{t.note}</p>
       </div>
       <div role="status" className="mt-4 rounded-md border border-dns-border p-3 text-xs text-dns-muted">
-        {t.preview}. {t.noSave}
+        {t.headerOnly} {t.noSave}
       </div>
       {!isAdmin ? <p className="mt-4 text-sm text-dns-muted">{t.unavailable}</p> :
       <>
+        <div className="mt-5 rounded-lg border border-dns-border p-3">
+          <p className="text-xs font-semibold">{t.headerOnly}</p>
+          <label className="mt-3 block text-xs font-semibold">{t.load}
+            <select className="mt-1 block w-full rounded-md border border-dns-border bg-white p-2 text-sm text-black"
+              value={savedHeader?.id??''} onChange={e=>loadHeader(e.target.value)}>
+              <option value="">—</option>
+              {headers.map(h=><option key={h.id} value={h.id}>{h.title} ({h.id}, r{h.sourceRevision})</option>)}
+            </select>
+          </label>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="text-xs font-semibold">{t.orderId}
+              <input className="mt-1 block w-full rounded-md border border-dns-border bg-white p-2 text-sm text-black"
+                disabled={Boolean(savedHeader)} value={orderId} onChange={e=>setOrderId(e.target.value)} placeholder="teamjacke-2026"/>
+            </label>
+            <label className="text-xs font-semibold">{t.documents}
+              <input className="mt-1 block w-full rounded-md border border-dns-border bg-white p-2 text-sm text-black"
+                value={documentRefs} onChange={e=>setDocumentRefs(e.target.value)} placeholder="OV26-0708, OV26-0712"/>
+            </label>
+          </div>
+          <button type="button" className="dns-btn-secondary mt-3" disabled={busy || !currentUserId || savedHeader?.status!=='draft' && Boolean(savedHeader)}
+            onClick={()=>void persistHeader()}>{busy?t.saving:t.save}</button>
+          {saveMessage && <p role="status" className="mt-2 text-xs">{saveMessage}</p>}
+        </div>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <label className="text-xs font-semibold">{t.project}
             <input className="mt-1 block w-full rounded-md border border-dns-border bg-white p-2 text-sm text-black"
