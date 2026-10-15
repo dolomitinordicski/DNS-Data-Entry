@@ -1,5 +1,6 @@
 import { collection, doc, getDocs, runTransaction, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/dnsCore';
+import type { CollectiveOrderStatus } from './model';
 import { validHeaderInput, validHeaderTransition, type CollectiveOrderHeader } from './headerValidation';
 
 /** Call only for verified DNS Admin sessions, after the Firestore rules PR is deployed. */
