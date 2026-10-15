@@ -20,6 +20,7 @@ import { LoginScreen } from './features/auth/LoginScreen';
 import { PricingSetup } from './features/pricing/PricingSetup';
 import { WireIcon } from './components/WireIcon';
 import { TicketOrdersTable } from './features/orders/TicketOrdersTable';
+import { CollectiveOrdersWorkspace } from './features/collective-orders/CollectiveOrdersWorkspace';
 import { PublicOrderSharePage } from './features/orders/PublicOrderSharePage';
 import { SeasonSetup } from './features/season/SeasonSetup';
 import { SeasonSelector } from './features/season/SeasonSelector';
@@ -108,6 +109,7 @@ function App() {
   const [language, setLanguage] = useState<Language>(() => getDNSDataEntryLanguage());
   const [selectedSeasonId, setSelectedSeasonId] = useState<string | null>(null);
   const [activeModule, setActiveModule] = useState<ModuleId>('season');
+  const [orderWorkspace, setOrderWorkspace] = useState<'seasonal'|'collective'>('seasonal');
   const [master, setMaster] = useState<DNSCoreMaster | null>(null);
   const [connection, setConnection] = useState<ConnectionState>('loading');
   const [pricingStatus, setPricingStatus] = useState('');
@@ -559,16 +561,36 @@ function App() {
 
           {!historicalSeason && activeModule === 'orders' && master && activeSeason && (
             <div key="orders" data-dns-reveal>
-              <TicketOrdersTable
-              language={language}
-              seasonId={String(activeSeason.id)}
-              canWrite={effectivePermissions.has('ticketOrders.write')}
-              developmentMode={developmentMode}
-              access={effectiveAccess}
-              organizations={master.organizations}
-              isAdmin={effectiveAccess?.isAdmin === true}
-              devAreaTest={developmentMode && devPersona === 'area-test'}
-              />
+              <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Order type">
+                <button type="button" className={orderWorkspace === 'seasonal' ? 'dns-btn-primary' : 'dns-btn-secondary'}
+                  aria-pressed={orderWorkspace === 'seasonal'} onClick={() => setOrderWorkspace('seasonal')}>
+                  {language === 'de' ? 'Saisonbestellungen' : 'Ordini stagionali'}
+                </button>
+                <button type="button" className={orderWorkspace === 'collective' ? 'dns-btn-primary' : 'dns-btn-secondary'}
+                  aria-pressed={orderWorkspace === 'collective'} onClick={() => setOrderWorkspace('collective')}>
+                  {language === 'de' ? 'Sammelbestellungen' : 'Ordini collettivi'}
+                </button>
+              </div>
+              {orderWorkspace === 'seasonal' ? (
+                <TicketOrdersTable
+                  language={language}
+                  seasonId={String(activeSeason.id)}
+                  canWrite={effectivePermissions.has('ticketOrders.write')}
+                  developmentMode={developmentMode}
+                  access={effectiveAccess}
+                  organizations={master.organizations}
+                  isAdmin={effectiveAccess?.isAdmin === true}
+                  devAreaTest={developmentMode && devPersona === 'area-test'}
+                />
+              ) : (
+                <CollectiveOrdersWorkspace
+                  key={String(activeSeason.id)}
+                  language={language}
+                  seasonId={String(activeSeason.id)}
+                  organizations={master.organizations}
+                  isAdmin={effectiveAccess?.isAdmin === true}
+                />
+              )}
             </div>
           )}
 
