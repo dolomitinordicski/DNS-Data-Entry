@@ -15,3 +15,4 @@ jobs:
           node-version: 22
       - run: npm install
       - run: npm run build
+      - run: node --experimental-strip-types --test src/services/digitalPassInventory.test.ts

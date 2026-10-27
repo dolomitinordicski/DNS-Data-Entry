@@ -21,3 +21,12 @@ test('rejects untrusted numbers and ambiguous assignments', () => {
   assert.equal(resolvePhysicalPassNumber('0', data, ['DNS_SEASON']).status, 'INVALID_NUMBER');
   assert.equal(resolvePhysicalPassNumber('170', data, ['DNS_SEASON']).status, 'AMBIGUOUS');
 });
+import { exportDigitalPassInventory } from './digitalPassInventory.ts';
+test('exports actual sk-dns rows without granting approval or sale status', () => {
+  const snapshot = exportDigitalPassInventory({ rows: [row('sk-dns',100,200)] }, '2026-27','revision-1');
+  assert.equal(snapshot.approved,false);
+  assert.equal(snapshot.rows[0].itemCode,'sk-dns');
+  assert.equal('sold' in snapshot,false);
+  assert.throws(()=>exportDigitalPassInventory({rows:[]},'2025-26','revision-1'));
+  assert.throws(()=>exportDigitalPassInventory({rows:[row('sk-dns',100,200),row('sk-area',150,250)]},'2026-27','revision-1'));
+});
