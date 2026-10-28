@@ -1,3 +1,4 @@
+import { exportDigitalPassInventory } from '../../services/digitalPassInventory';
 import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -1100,6 +1101,12 @@ export function TicketOrdersTable({
                   {t.numberingStartHelp}
                 </p>
               </div>
+              {isAdmin && !developmentMode && seasonId === '2026-27' && !dirty[category] && <button type="button" className="dns-button" onClick={() => {
+                const snapshot = exportDigitalPassInventory(ticketNumbering, seasonId, crypto.randomUUID());
+                const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' }));
+                const link = document.createElement('a'); link.href = url; link.download = 'dns-digital-pass-inventory-2026-27.json'; link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              }}>{language === 'de' ? 'Digital Pass · Matrix exportieren (nicht freigegeben)' : 'Digital Pass · Esporta matrice (da approvare)'}</button>}
               <label className="block w-full max-w-[220px]">
                 <span className="dns-kicker">{t.numberingStart}</span>
                 <input
