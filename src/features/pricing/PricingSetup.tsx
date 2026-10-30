@@ -115,6 +115,8 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
 
   function patch(id: string, values: Partial<PricingDraftRow>) {
     if (readOnly) return;
+    const target = rows.find((row) => row.id === id);
+    if (!target || !canEditRow(target)) return;
     onChange(rows.map((row) => (row.id === id ? { ...row, ...values } : row)));
   }
 
@@ -123,9 +125,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
     if (!overrideOrg || !overrideProduct) return;
     const id = `${seasonId}-${overrideOrg}-${overrideProduct}-official-regular`;
     if (rows.some((row) => row.id === id)) return;
-    onChange([
-      ...rows,
-      {
+    const proposed: PricingDraftRow = {
         id,
         seasonId,
         scopeType: 'organization',
@@ -138,8 +138,9 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
         validFrom: '',
         validTo: '',
         notes: '',
-      },
-    ]);
+    };
+    if (!canEditRow(proposed)) return;
+    onChange([...rows, proposed]);
   }
 
   const renderRows = (data: PricingDraftRow[], includeArea = false, includeOrganization = false) => (
