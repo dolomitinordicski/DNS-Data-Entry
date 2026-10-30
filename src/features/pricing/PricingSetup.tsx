@@ -125,9 +125,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
     if (!overrideOrg || !overrideProduct) return;
     const id = `${seasonId}-${overrideOrg}-${overrideProduct}-official-regular`;
     if (rows.some((row) => row.id === id)) return;
-    onChange([
-      ...rows,
-      {
+    const proposed: PricingDraftRow = {
         id,
         seasonId,
         scopeType: 'organization',
@@ -140,8 +138,9 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
         validFrom: '',
         validTo: '',
         notes: '',
-      },
-    ]);
+    };
+    if (!canEditRow(proposed)) return;
+    onChange([...rows, proposed]);
   }
 
   const renderRows = (data: PricingDraftRow[], includeArea = false, includeOrganization = false) => (
