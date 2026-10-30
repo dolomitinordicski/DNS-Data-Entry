@@ -9,11 +9,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { DNS_SHARED_BRAND } from './config/brand';
 import { MODULE_READ_PERMISSION } from './config/access';
-import {
-  DEV_AREA_TEST_LABEL,
-  devAccessFor,
-  type DevPersona,
-} from './config/devAccess';
 import { modules, type ModuleId } from './config/modules';
 import { createInitialPricingDraft } from './config/pricing';
 import { LoginScreen } from './features/auth/LoginScreen';
@@ -120,9 +115,6 @@ function App() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [access, setAccess] = useState<DNSAccessContext | null>(null);
-  // DEV impersonation disabled: access requires Firebase authentication.
-  const developmentMode = false;
-  const devPersona: DevPersona = 'admin';
   const t = copy[language];
   const coreHeaderStatus = formatDNSCoreHeaderStatus(
     connection === 'ready'
@@ -137,9 +129,8 @@ function App() {
     language,
   );
 
-  const effectiveAccess = developmentMode ? devAccessFor(devPersona) : access;
+  const effectiveAccess = access;
   const hasToolAccess =
-    developmentMode ||
     (effectiveAccess?.profile?.active === true &&
       (effectiveAccess.isAdmin || effectiveAccess.permissions.size > 0));
 
@@ -210,7 +201,7 @@ function App() {
   useEffect(() => {
     let active = true;
     setPricingLoaded(false);
-    if (historicalSeason || !activeSeason || !authReady || !effectiveAccess?.profile?.active || developmentMode) { setPricingBusy(false); return; }
+    if (historicalSeason || !activeSeason || !authReady || !effectiveAccess?.profile?.active) { setPricingBusy(false); return; }
     setPricingBusy(true);
     setPricingStatus('');
     loadPricing(String(activeSeason.id)).then((saved) => {
@@ -220,11 +211,11 @@ function App() {
     }).catch((error) => { if (active) setPricingStatus(persistenceMessage(error, language)); })
       .finally(() => { if (active) setPricingBusy(false); });
     return () => { active = false; };
-  }, [activeSeason?.id, authReady, effectiveAccess?.profile?.id, developmentMode]);
+  }, [activeSeason?.id, authReady, effectiveAccess?.profile?.id]);
 
   function canManageTariff(row: PricingDraftRow) {
     if (historicalSeason) return false;
-    return (developmentMode && devPersona === 'admin') || effectiveAccess?.isAdmin === true || (effectiveAccess?.grants ?? []).some((grant) =>
+    return effectiveAccess?.isAdmin === true || (effectiveAccess?.grants ?? []).some((grant) =>
       grant.active && grant.permissions.includes('pricing.manage') &&
       ((grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski') ||
         (grant.scopeType === row.scopeType && grant.scopeId === row.scopeId)),
@@ -265,7 +256,7 @@ function App() {
     return <PublicOrderSharePage shareId={publicShareId} language={language} onLanguageChange={setDNSDataEntryLanguage} />;
   }
 
-  if (!authReady && !developmentMode) {
+  if (!authReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-dns-bg">
         <div className="dns-kicker">{t.authLoading}</div>
@@ -273,7 +264,7 @@ function App() {
     );
   }
 
-  if (!authUser && !developmentMode) {
+  if (!authUser) {
     return (
       <LoginScreen
         language={language}
@@ -325,7 +316,7 @@ function App() {
                 data-dns-hover
                 className="dns-tool-header-session-action hover:text-white"
               >
-                {developmentMode ? t.exitDev : t.signOut}
+                {t.signOut}
               </button>
             </div>
           </div>
@@ -382,14 +373,10 @@ function App() {
           <div className="dns-tool-header-actions">
             <div className="dns-tool-header-account">
               <div className="font-alt text-[10px] text-white/75">
-                {developmentMode
-                  ? (devPersona === 'area-test' ? DEV_AREA_TEST_LABEL : t.devAdmin)
-                  : (authUser?.email ?? authUser?.uid)}
+                {(authUser?.email ?? authUser?.uid)}
               </div>
               <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[.06em] text-dns-light">
-                {developmentMode
-                  ? (devPersona === 'area-test' ? t.devAreaScope : t.devMode)
-                  : effectiveAccess?.isAdmin ? t.admin : t.scoped}
+                {effectiveAccess?.isAdmin ? t.admin : t.scoped}
               </div>
             </div>
 
@@ -420,7 +407,7 @@ function App() {
               data-dns-hover
               className="dns-tool-header-session-action hover:text-white"
             >
-              {developmentMode ? t.exitDev : t.signOut}
+              {t.signOut}
             </button>
 
             <div
@@ -506,7 +493,7 @@ function App() {
               onChange={(rows) => { setPricingStatus(''); setPricingRows(rows); }}
               readOnly={!canManagePricing || pricingBusy}
               onSave={persistPricing} saving={pricingBusy}
-              canSave={canManagePricing && pricingLoaded && !developmentMode}
+              canSave={canManagePricing && pricingLoaded}
               saveStatus={pricingStatus} canEditRow={canManageTariff}
             />
             </div>
@@ -529,11 +516,11 @@ function App() {
                   language={language}
                   seasonId={String(activeSeason.id)}
                   canWrite={effectivePermissions.has('ticketOrders.write')}
-                  developmentMode={developmentMode}
+                  developmentMode={false}
                   access={effectiveAccess}
                   organizations={master.organizations}
                   isAdmin={effectiveAccess?.isAdmin === true}
-                  devAreaTest={developmentMode && devPersona === 'area-test'}
+                  devAreaTest={false}
                 />
               ) : (
                 <CollectiveOrdersWorkspace
@@ -556,14 +543,14 @@ function App() {
                 access={effectiveAccess}
                 canWrite={effectivePermissions.has('kp.write')}
                 canVerify={effectivePermissions.has('kp.verify')}
-                developmentMode={developmentMode}
+                developmentMode={false}
               />
             </div>
           )}
 
           {!historicalSeason && activeModule === 'sales' && master && activeSeason && (
             <div key="sales" data-dns-reveal>
-            <SalesEntry master={master} access={effectiveAccess} developmentMode={developmentMode}
+            <SalesEntry master={master} access={effectiveAccess} developmentMode={false}
               canWrite={effectivePermissions.has('ticketSales.write')} language={language}
               seasonId={String(activeSeason.id)} pricingRows={pricingRows}
               rows={salesRows} onChange={setSalesRows} pricingLoaded={pricingLoaded} />
