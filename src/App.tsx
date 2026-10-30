@@ -120,12 +120,9 @@ function App() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [access, setAccess] = useState<DNSAccessContext | null>(null);
-  const [developmentMode, setDevelopmentMode] = useState(
-    () => sessionStorage.getItem('dns-development-mode') === '1',
-  );
-  const [devPersona, setDevPersona] = useState<DevPersona>(
-    () => sessionStorage.getItem('dns-dev-persona') === 'area-test' ? 'area-test' : 'admin',
-  );
+  // DEV impersonation disabled: access requires Firebase authentication.
+  const developmentMode = false;
+  const devPersona: DevPersona = 'admin';
   const t = copy[language];
   const coreHeaderStatus = formatDNSCoreHeaderStatus(
     connection === 'ready'
@@ -281,12 +278,7 @@ function App() {
       <LoginScreen
         language={language}
         onLanguageChange={setDNSDataEntryLanguage}
-        onDevelopmentMode={() => {
-          sessionStorage.setItem('dns-development-mode', '1');
-          sessionStorage.setItem('dns-dev-persona', 'admin');
-          setDevPersona('admin');
-          setDevelopmentMode(true);
-        }}
+
       />
     );
   }
@@ -360,13 +352,6 @@ function App() {
 
   function leaveSession() {
     setSalesRows([]);
-    if (developmentMode) {
-      sessionStorage.removeItem('dns-development-mode');
-      sessionStorage.removeItem('dns-dev-persona');
-      setDevPersona('admin');
-      setDevelopmentMode(false);
-      return;
-    }
     void dnsSignOut();
   }
 
@@ -449,38 +434,6 @@ function App() {
           </div>
         </div>
       </header>
-
-      {developmentMode && (
-        <div className="bg-amber-100 px-5 py-2 text-amber-900">
-          <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center gap-3 font-alt text-[10px] font-bold uppercase tracking-[.08em]">
-            <span>{t.devMode} · Frontend only · no production writes</span>
-            <div className="inline-flex overflow-hidden rounded-md border border-amber-900/20 bg-white/70">
-              {([
-                ['admin', t.devAdmin],
-                ['area-test', t.devArea],
-              ] as const).map(([persona, label]) => (
-                <button
-                  key={persona}
-                  type="button"
-                  onClick={() => {
-                    sessionStorage.setItem('dns-dev-persona', persona);
-                    setDevPersona(persona);
-                    if (persona === 'area-test') setActiveModule('orders');
-                  }}
-                  className={[
-                    'px-3 py-1.5 transition',
-                    devPersona === persona ? 'bg-amber-900 text-white' : 'text-amber-900',
-                  ].join(' ')}
-                  aria-pressed={devPersona === persona}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {devPersona === 'area-test' && <span>{t.devAreaScope}</span>}
-          </div>
-        </div>
-      )}
 
       <nav data-dns-tool-nav id="dns-data-entry-nav" className="dns-tab-nav" aria-label={t.operations}>
         <div className="dns-tab-nav-inner">
