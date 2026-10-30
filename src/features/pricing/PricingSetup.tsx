@@ -115,6 +115,8 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
 
   function patch(id: string, values: Partial<PricingDraftRow>) {
     if (readOnly) return;
+    const target = rows.find((row) => row.id === id);
+    if (!target || !canEditRow(target)) return;
     onChange(rows.map((row) => (row.id === id ? { ...row, ...values } : row)));
   }
 
