@@ -1,6 +1,8 @@
 import { exportDigitalPassInventory } from '../../services/digitalPassInventory';
 import { RegionLogos } from '../../components/RegionLogos';
 import { useEffect, useMemo, useState } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../services/dnsCore';
 import {
   ORDER_SOURCE_TOTALS_2026_27,
   POCKETFOLDER_SOURCE_TOTALS_2026_27,
@@ -306,7 +308,7 @@ function getOrganizationIdsByPermission(
 export function TicketOrdersTable({
   language,
   seasonId,
-  canWrite,
+  canWrite: allowedToWrite,
   developmentMode,
   access,
   organizations,
@@ -314,6 +316,30 @@ export function TicketOrdersTable({
   devAreaTest = false,
 }: Props) {
   const t = copy[language];
+  const [deadlineState, setDeadlineState] = useState<'loading' | 'open' | 'closed'>('loading');
+  const [deadlineAt, setDeadlineAt] = useState<number | null>(null);
+  const [clockNow, setClockNow] = useState(Date.now());
+  useEffect(() => {
+    if (developmentMode || isAdmin) { setDeadlineState('open'); return; }
+    setDeadlineState('loading');
+    const stop = onSnapshot(doc(db, 'orderDeadlines', seasonId), snapshot => {
+      if (!snapshot.exists()) { setDeadlineAt(null); setDeadlineState('open'); return; }
+      const data = snapshot.data();
+      const millis = data.deadlineAt?.toMillis?.();
+      if (data.enabled !== true || typeof millis !== 'number') {
+        setDeadlineAt(null); setDeadlineState('closed'); return;
+      }
+      setDeadlineAt(millis); setDeadlineState('open');
+    }, () => { setDeadlineAt(null); setDeadlineState('closed'); });
+    return () => stop();
+  }, [seasonId, developmentMode, isAdmin]);
+  useEffect(() => {
+    const interval = window.setInterval(() => setClockNow(Date.now()), 15000);
+    return () => window.clearInterval(interval);
+  }, []);
+  const deadlineClosed = !developmentMode && !isAdmin &&
+    (deadlineState !== 'open' || (deadlineAt !== null && clockNow > deadlineAt));
+  const canWrite = allowedToWrite && !deadlineClosed;
   const [category, setCategory] = useState<OrderMatrixCategory>('wristband');
   const [pocketfolderView, setPocketfolderView] = useState<'operational' | 'source'>('operational');
   const [pocketfolderSourceRows, setPocketfolderSourceRows] = useState<PocketfolderSourceRow[]>([]);
