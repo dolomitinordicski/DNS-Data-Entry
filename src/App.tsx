@@ -1,5 +1,6 @@
 import { HistoricalSeason } from './features/season/HistoricalSeason';
 import { KPDataEntry } from './features/kp/KPDataEntry';
+import { TrackQualityWorkspace } from './features/track-quality/TrackQualityWorkspace';
 import { loadPricing, savePricing, persistenceMessage } from './services/seasonalPersistence';
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
@@ -534,6 +535,13 @@ function App() {
             </div>
           )}
 
+          {!historicalSeason && activeModule === 'track-quality' && master && activeSeason && effectiveAccess && (
+            <div key="track-quality" data-dns-reveal>
+              <TrackQualityWorkspace seasonId={String(activeSeason.id)} language={language}
+                master={master} access={effectiveAccess} />
+            </div>
+          )}
+
           {!historicalSeason && activeModule === 'kp' && master && activeSeason && effectiveAccess && (
             <div key="kp" data-dns-reveal>
               <KPDataEntry
@@ -557,7 +565,7 @@ function App() {
             </div>
           )}
 
-          {!historicalSeason && !['season', 'pricing', 'orders', 'sales', 'kp'].includes(activeModule) && (
+          {!historicalSeason && !['season', 'pricing', 'orders', 'sales', 'kp', 'track-quality'].includes(activeModule) && (
             <div key={activeModule} data-dns-reveal className="space-y-5">
               <section className="dns-card p-6">
                 <div className="dns-section-title">{active.label[language]}</div>
