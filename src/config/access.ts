@@ -7,5 +7,6 @@ export const MODULE_READ_PERMISSION: Record<ModuleId, DNSPermission> = {
   orders: 'ticketOrders.read',
   sales: 'ticketSales.read',
   kp: 'kp.read',
+  'track-quality': 'kp.read',
   verification: 'verification.read',
 };
