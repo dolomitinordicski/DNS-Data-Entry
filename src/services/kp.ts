@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  runTransaction,
   getDocs,
   query,
   serverTimestamp,
@@ -151,29 +152,28 @@ export async function saveKpMilestone(value: KpMilestoneDoc) {
   });
 }
 
-export async function saveKpEntry(value: Omit<KpEntryDoc, 'revision'>) {
+export async function saveKpEntry(value: Omit<KpEntryDoc, 'revision'>, expectedRevision = 0) {
   const userId = uid();
   const ref = doc(db, 'kpEntries', value.id);
-  const existing = await getDoc(ref);
-  const next = {
-    ...value,
-    provenance,
-    revision: existing.exists() ? Number(existing.data().revision ?? 1) + 1 : 1,
-    updatedBy: userId,
-    updatedAt: serverTimestamp(),
-  };
-
-  if (!existing.exists()) {
-    await setDoc(ref, next);
+  return runTransaction(db, async (transaction) => {
+    const existing = await transaction.get(ref);
+    const previous = existing.exists() ? existing.data() : null;
+    const actualRevision = Number(previous?.revision ?? 0);
+    if (actualRevision !== expectedRevision) throw new Error('CONFLICT_RELOAD');
+    if (previous?.provenance?.dataStatus && previous.provenance.dataStatus !== 'draft') {
+      throw new Error('RECORD_LOCKED');
+    }
+    const next = {
+      ...value,
+      provenance,
+      revision: actualRevision + 1,
+      updatedBy: userId,
+      updatedAt: serverTimestamp(),
+    };
+    if (previous) transaction.set(doc(ref, 'revisions', String(actualRevision)), previous);
+    transaction.set(ref, next);
     return next.revision;
-  }
-
-  const previous = existing.data();
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'kpEntries', value.id, 'revisions', String(previous.revision ?? 1)), previous);
-  batch.set(ref, next);
-  await batch.commit();
-  return next.revision;
+  });
 }
 
 export async function validateKpFairCandidate(
