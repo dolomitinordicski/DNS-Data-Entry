@@ -306,7 +306,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
         includeInKp: draft.includeInKp,
         exclusionReason: draft.includeInKp ? '' : draft.exclusionReason.trim(),
         notes: draft.notes.trim(),
-      });
+      }, entries.find((item) => item.id === id)?.revision ?? 0);
       await reload();
       setStatus(it ? 'Dati KP salvati in Firebase.' : 'KP-Daten in Firebase gespeichert.');
     } catch (error) {
