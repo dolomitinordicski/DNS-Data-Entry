@@ -6,6 +6,7 @@ export type WireIconName =
   | 'orders'
   | 'sales'
   | 'kp'
+  | 'track-quality'
   | 'verification'
   | 'print'
   | 'share';
@@ -65,6 +66,12 @@ export function WireIcon({
         <path d="M3.5 17.5l5-7 3 3 4.5-7 4.5 11" />
         <path d="M5 19.5h14" />
         <path d="M7 7.5c1-2 3-3 5-3" />
+      </>
+    ),
+    'track-quality': (
+      <>
+        <path d="M4 19h16M5 16l4-7 4 4 4-8 3 11" />
+        <path d="M7 5h4M9 3v4" />
       </>
     ),
     verification: (
