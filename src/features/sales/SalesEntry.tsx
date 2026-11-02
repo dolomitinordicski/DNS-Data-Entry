@@ -60,6 +60,24 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
     return () => { active = false; };
   }, [scope, developmentMode, onChange]);
 
+  async function reloadSavedSales() {
+    if (busy || !org || !areaId) return;
+    setBusy(true);
+    setStatus('');
+    try {
+      const saved = await loadSales(seasonId, org.id, areaId);
+      onChange((current) => [
+        ...current.filter((row) => !(row.seasonId === seasonId && row.organizationId === org.id && row.reportingAreaId === areaId)),
+        ...saved,
+      ]);
+      setLoadedScope(scope);
+      setStatus(language === 'de' ? 'Daten aus Firebase neu geladen' : 'Dati ricaricati da Firebase');
+    } catch (error) {
+      setStatus(persistenceMessage(error, language));
+    } finally {
+      setBusy(false);
+    }
+  }
   const editable = !busy && loadedScope === scope && canWrite && Boolean(org) && (access?.isAdmin || (access?.profile?.active === true &&
     access.memberships.some((membership) => membership.active && membership.organizationId === org?.id) && (access?.grants ?? []).some((grant) =>
     grant.active && grant.permissions.includes('ticketSales.write') &&
@@ -99,6 +117,7 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
       <button type="button" disabled={!editable || !pricingLoaded || developmentMode || !cells.some((cell) => cell.valid && !cell.draft.pricing) || cells.some((cell) => (cell.draft.quantity !== null || cell.draft.amountOverride !== null) && !cell.valid)} onClick={persist} className="dns-button disabled:opacity-40" data-variant="primary">
         {busy ? (language === 'de' ? 'Laden…' : 'Caricamento…') : (language === 'de' ? 'In Firebase speichern' : 'Salva in Firebase')}
       </button>
+      <button type="button" disabled={busy || !org || loadedScope !== scope} className="dns-btn-secondary" onClick={() => void reloadSavedSales()}>{language === 'de' ? 'Neu laden' : 'Ricarica dati'}</button>
       <span role="status" className="font-alt text-[11px]">{status}</span>
     </div>
     <p className="mt-3 font-alt text-[12px] text-dns-muted">{t.intro}</p>
