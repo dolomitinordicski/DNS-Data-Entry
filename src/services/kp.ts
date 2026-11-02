@@ -104,19 +104,22 @@ export async function loadKpEntries(seasonId: string, access: DNSAccessContext):
   const readableOrganizations = await Promise.all(access.memberships.filter(member =>
     organizationAllows(access, member.organizationId)).map(async member => {
     const org = await getDoc(doc(db, 'organizations', member.organizationId));
-    return grants.some(grant => grant.scopeType === 'network' ||
+    const areas = (org.data()?.reportingAreaIds ?? []) as string[];
+    return areas.filter(areaId => grants.some(grant =>
+      (grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski') ||
       (grant.scopeType === 'organization' && grant.scopeId === member.organizationId) ||
-      (grant.scopeType === 'reportingArea' && org.data()?.reportingAreaIds?.includes(grant.scopeId)))
-      ? member.organizationId : null;
+      (grant.scopeType === 'reportingArea' && grant.scopeId === areaId)))
+      .map(areaId => ({ organizationId: member.organizationId, reportingAreaId: areaId }));
   }));
   const queries = access.isAdmin
     ? [query(collection(db, 'kpEntries'), where('seasonId', '==', seasonId))]
-    : readableOrganizations.filter((id): id is string => id !== null)
-      .map((id) => query(
+    : readableOrganizations.flat()
+      .map((scope) => query(
         collection(db, 'kpEntries'),
         where('seasonId', '==', seasonId),
         where('entityType', '==', 'organization'),
-        where('entityId', '==', id),
+        where('entityId', '==', scope.organizationId),
+        where('reportingAreaId', '==', scope.reportingAreaId),
       ));
 
   const snapshots = await Promise.all(queries.map((item) => getDocs(item)));
