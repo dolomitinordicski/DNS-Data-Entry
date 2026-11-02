@@ -10,7 +10,7 @@ test.beforeAll(async()=>{
   if(process.env.GCLOUD_PROJECT!=='demo-dns-identity'||process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8188'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9098') throw Error('Dedicated loopback demo required');
   env=await initializeTestEnvironment({projectId:'demo-dns-identity',firestore:{host:'127.0.0.1',port:8188,rules:fs.readFileSync('tests/acceptance/upstream/firestore.rules','utf8')}});
   for(const name of ['admin','writer','reader','none','outsider','inactive','second']){
-    const email=`${name}@dns-test.invalid`;
+    const email=`${name}-${Date.now()}@dns-test.invalid`;
     const response=await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-only',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,returnSecureToken:true})});
     const account=await response.json(); if(!response.ok) throw Error(JSON.stringify(account));
     users[name]={email,uid:account.localId};
@@ -69,7 +69,7 @@ test('Quality: create 2026/27 trail, partial km, save and relogin through UI',as
   await login(page);await page.getByRole('button',{name:'Controllo piste',exact:true}).click();
   await page.getByRole('button',{name:'Aggiungi pista',exact:true}).click();
   await page.getByLabel('Pista',{exact:true}).fill('Synthetic DNS trail');await page.getByLabel('Km complessivi',{exact:true}).fill('5');
-  await page.getByLabel('Preparata entro 8 dicembre',{exact:true}).selectOption('partial');
+  await page.getByLabel('Preparata entro 8 dicembre').selectOption('partial');
   await page.getByLabel('Km unici preparati (se parziale)',{exact:true}).fill('2');
   await page.getByRole('button',{name:'Salva',exact:true}).click();await expect(page.getByText('Salvato su Firebase',{exact:true})).toBeVisible();
   await relogin(page);await page.getByRole('button',{name:'Controllo piste',exact:true}).click();

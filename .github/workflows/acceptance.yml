@@ -21,7 +21,7 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - name: Production excludes test emulator configuration and DEV personas
-        run: '! grep -R -E "demo-dns-identity|9098|8188|dev-area-test|DEV MODE" dist/assets/*.js'
+        run: '! grep -q -R -E "demo-dns-identity|9098|8188|dev-area-test|DEV MODE" dist/assets/*.js'
       - name: Auth, forms and rules in isolated virtual DNS organization
         if: always()
         env:
