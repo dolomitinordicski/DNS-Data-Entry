@@ -103,7 +103,7 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
     setBusy(true);
     setStatus('');
     try {
-      const saved = await saveSales(cells.filter((cell) => cell.draft.quantity !== null).map((cell) => cell.draft), pricingRows);
+      const saved = await saveSales(cells.map((cell) => cell.draft), pricingRows);
       onChange((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
       setStatus(language === 'de' ? 'In Firebase gespeichert' : 'Salvato in Firebase');
     } catch (error) {

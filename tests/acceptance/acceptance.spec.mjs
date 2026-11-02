@@ -85,6 +85,8 @@ test('Sales: blank differs from zero, revenue, correction and relogin through UI
   await page.getByRole('button',{name:'Salva in Firebase',exact:true}).click();await expect(page.getByText('Salvato in Firebase',{exact:true})).toBeVisible();
   let saved=await service(page,'pricing.loadSales',['2026-27',org,area]);expect(saved).toHaveLength(2);expect(saved.find(r=>r.productCode==='day').quantity).toBe(0);expect(saved.find(r=>r.productCode==='wk-dns').calculatedAmount).toBe(130);
   await week.fill('3');await page.getByRole('button',{name:'Salva in Firebase',exact:true}).click();await expect(page.getByText('Salvato in Firebase',{exact:true})).toBeVisible();
+  await day.fill('');await page.getByRole('button',{name:'Salva in Firebase',exact:true}).click();
+  await expect(page.getByText('Non svuotare valori già salvati. Per nessuna vendita inserisci 0.',{exact:true})).toBeVisible();
   await relogin(page);await page.getByRole('button',{name:'Vendite biglietti',exact:true}).click();await expect(day).toHaveValue('0');await expect(week).toHaveValue('3');
   await expect(page.getByLabel('Biglietti venduti · Settimanale area',{exact:true})).toHaveValue('');
 });
