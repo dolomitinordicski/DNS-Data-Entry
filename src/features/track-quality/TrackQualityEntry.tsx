@@ -14,8 +14,8 @@ type Props = {
 
 const statuses: TrackQualityStatus[] = ['unreported', 'yes', 'partial', 'no'];
 const labels = {
-  it: { title: 'Controllo qualità piste', track: 'Pista', km: 'Km complessivi', early: 'Preparata entro 8 dicembre', late: 'Preparata dal 23 dicembre', part: 'Km unici preparati (se parziale)', close: 'Data chiusura', notes: 'Note', add: 'Aggiungi pista', save: 'Salva', loading: 'Caricamento', empty: 'Nessuna pista inserita per questa stagione.', yes: 'Sì', partial: 'Parziale', no: 'No', unreported: 'Da compilare', saved: 'Salvato su Firebase', error: 'Operazione non riuscita', readOnly: 'Sola lettura' },
-  de: { title: 'Loipen Qualitätskontrolle', track: 'Loipe', km: 'Gesamtkilometer', early: 'Bis 8. Dezember präpariert', late: 'Ab 23. Dezember präpariert', part: 'Präparierte Einzel-km (bei teilweise)', close: 'Schließungsdatum', notes: 'Notizen', add: 'Loipe hinzufügen', save: 'Speichern', loading: 'Lädt', empty: 'Keine Loipen für diese Saison erfasst.', yes: 'Ja', partial: 'Teilweise', no: 'Nein', unreported: 'Nicht gemeldet', saved: 'In Firebase gespeichert', error: 'Vorgang fehlgeschlagen', readOnly: 'Nur Lesen' },
+  it: { title: 'Controllo qualità piste', track: 'Pista', km: 'Km complessivi', early: 'Preparata entro 8 dicembre', late: 'Preparata dal 23 dicembre', part: 'Km unici preparati (se parziale)', close: 'Data chiusura', notes: 'Note', add: 'Aggiungi pista', save: 'Salva', loading: 'Caricamento', empty: 'Nessuna pista inserita per questa stagione.', yes: 'Sì', partial: 'Parziale', no: 'No', unreported: 'Da compilare', saved: 'Salvato su Firebase', error: 'Operazione non riuscita', readOnly: 'Sola lettura', reload: 'Ricarica dati', conflict: 'Dati modificati da un altro utente. Ricarica prima di salvare; le modifiche non salvate andranno perse.' },
+  de: { title: 'Loipen Qualitätskontrolle', track: 'Loipe', km: 'Gesamtkilometer', early: 'Bis 8. Dezember präpariert', late: 'Ab 23. Dezember präpariert', part: 'Präparierte Einzel-km (bei teilweise)', close: 'Schließungsdatum', notes: 'Notizen', add: 'Loipe hinzufügen', save: 'Speichern', loading: 'Lädt', empty: 'Keine Loipen für diese Saison erfasst.', yes: 'Ja', partial: 'Teilweise', no: 'Nein', unreported: 'Nicht gemeldet', saved: 'In Firebase gespeichert', error: 'Vorgang fehlgeschlagen', readOnly: 'Nur Lesen', reload: 'Daten neu laden', conflict: 'Ein anderer Benutzer hat diese Daten geändert. Vor dem Speichern neu laden; ungespeicherte Änderungen gehen verloren.' },
 };
 export function TrackQualityEntry({ seasonId, reportingAreaId, organizationId, canWrite, language }: Props) {
   const t = labels[language];
@@ -31,6 +31,13 @@ export function TrackQualityEntry({ seasonId, reportingAreaId, organizationId, c
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
   }, [seasonId, reportingAreaId, organizationId]);
+  async function reload() {
+    if (busy) return;
+    setBusy(true); setStatus('');
+    try { setRows(await loadTrackQuality(seasonId, reportingAreaId, organizationId)); }
+    catch (error) { setStatus(t.error + ': ' + String(error)); }
+    finally { setBusy(false); }
+  }
   function update(id: string, patch: Partial<TrackQualityRow>) {
     if (!canWrite || busy) return;
     setRows((previous) => previous.map((r) => r.id === id ? { ...r, ...patch } : r));
@@ -42,15 +49,19 @@ export function TrackQualityEntry({ seasonId, reportingAreaId, organizationId, c
       const revision = await saveTrackQuality(row);
       setRows((previous) => previous.map((r) => r.id === row.id ? { ...r, revision } : r));
       setStatus(t.saved);
-    } catch (error) { setStatus(t.error + ': ' + String(error)); }
-    finally { setBusy(false); }
+    } catch (error) {
+      setStatus(String(error).includes('CONFLICT_RELOAD') ? t.conflict : t.error + ': ' + String(error));
+    } finally { setBusy(false); }
   }
   const numeric = (value: number | null) => value ?? '';
   const numberValue = (raw: string) => raw.trim() === '' ? null : Number(raw);
   return <section className="dns-card p-5 space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h2 className="dns-section-title">{t.title} · {seasonId}</h2>
-      {!canWrite && <span className="dns-kicker">{t.readOnly}</span>}
+      <div className="flex items-center gap-2">
+        {!canWrite && <span className="dns-kicker">{t.readOnly}</span>}
+        <button type="button" className="dns-btn-secondary" disabled={busy} onClick={()=>void reload()}>{t.reload}</button>
+      </div>
     </div>
     {busy && <p role="status">{t.loading}</p>}
     {status && <p role="status" className="text-sm">{status}</p>}
