@@ -140,6 +140,16 @@ test('History locked even for admin and stale revisions rejected',async({page})=
   await login(page,'admin');const row={...price(),id:'2025-26-test',seasonId:'2025-26'};
   await expect(service(page,'pricing.savePricing',[[row]])).rejects.toThrow();
   await expect(service(page,'kp.saveKpMilestone',[{id:'2025-26__m1',seasonId:'2025-26',date:'2025-12-08',label:'blocked',order:1}])).rejects.toThrow();
+  const historic={id:`2025-26__${org}`,seasonId:'2025-26',entityType:'organization',entityId:org,reportingAreaId:area,referenceKm:{uniqueNetworkKm:5,potentialOperationalKm:5},milestones:[{milestoneId:'2025-26__m1',openedKm:3,naturalSnowKm:2,artificialSnowKm:1}],includeInKp:true,exclusionReason:'',notes:'historical original'};
+  await env.withSecurityRulesDisabled(async c=>{
+    await setDoc(doc(c.firestore(),'kpMilestones/2025-26__m1'),{id:'2025-26__m1',seasonId:'2025-26',date:'2025-12-08',label:'historical',order:1});
+    await setDoc(doc(c.firestore(),'kpEntries',historic.id),{...historic,revision:1,provenance:{sourceSystem:'manual-data-entry',methodVersion:1,dataStatus:'draft'},updatedBy:users.admin.uid,updatedAt:new Date('2025-12-08T12:00:00Z')});
+  });
+  await expect(service(page,'kp.saveKpEntry',[{...historic,notes:'must not overwrite'},1])).rejects.toThrow();
+  const unchanged=await page.evaluate(async path=>(await import('/tests/acceptance/operations.ts')).read(path),`kpEntries/${historic.id}`);
+  expect(unchanged.revision).toBe(1);expect(unchanged.notes).toBe('historical original');
+  const absentArchive=await page.evaluate(async path=>(await import('/tests/acceptance/operations.ts')).read(path),`kpEntries/${historic.id}/revisions/1`);
+  expect(absentArchive).toBeUndefined();
 });
 test('Organization prices: W save/reload and foreign overrides denied',async({page})=>{
   await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),'ticketPricingConfigs/foreign-price'),{...price(),id:'foreign-price',scopeType:'organization',scopeId:other}));
