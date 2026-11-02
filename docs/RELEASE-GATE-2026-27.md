@@ -44,3 +44,16 @@
 - Shared Data #210: package icon catalog has green checks but is draft; leave it for its owner. Data Entry #70 (collective orders) outside 6 November release scope.
 - **Merge gate remains closed** until integration demonstrates W/R/none + saved/reloaded records through the real front-end, simultaneous sessions, cross-organization denial, and no bypass on deployed Data Entry.
 - Check parallel GitHub PRs and recent workstream decisions before every subsequent DNS edit or merge; don't rely on an older green commit if the PR head changed.
+
+## Acceptance walkthrough — isolated Identity test organization
+Run only against Firebase Emulator / isolated staging, never against live season data.
+Use the existing synthetic area `dns-test-area` and three distinct authorization profiles; one operator at a time per organization.
+
+1. **Login:** password-based DNS Identity only; no DEV login, DEV persona or test toggle in deployed UI. Confirm inactive/unauthorized users cannot enter protected modules.
+2. **Prices:** W user saves a changed regional tariff, signs out, signs back in and verifies the same value; R cannot save and none cannot access. Verify area-specific overrides never change another organization.
+3. **Qualitätskontrolle:** W creates one synthetic track and records partial kilometres; reload and sign-in reproduce it. R can view but cannot save; none is denied. An out-of-area record must not be visible.
+4. **Sales:** save one synthetic quantity 0 and one nonzero quantity; verify blank remains distinct from zero, pricing snapshot and totals persist. Correct a previously saved amount, reload and confirm new value; R and none must be blocked.
+5. **KP:** save one test milestone and organization entry, reload and confirm values; R/none denied for updates. Confirm historical-season entries remain locked.
+6. **Release boundary:** inspect GitHub CI on exact merge SHAs. Merge Shared Data security changes only after coordinating the overlapping Flyer Studio #221 rules. Deploy and smoke-test through Workspace Identity before enabling area accounts. Record test evidence and outcomes here before final go/no-go.
+
+Not completed by a green compilation alone: end-to-end sign-out/sign-in, Firebase persistence and W/R/none must be observed against the test backend.
