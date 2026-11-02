@@ -27,11 +27,13 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
   const grants = access?.grants.filter((grant) => grant.active && grant.permissions.includes('ticketSales.read')) ?? [];
   const organizations = master.organizations.filter((org) => {
     if (!Array.isArray(org.reportingAreaIds) || !org.reportingAreaIds.length) return false;
-    return developmentMode || access?.isAdmin || grants.some((grant) =>
+    return access?.isAdmin || (access?.profile?.active === true &&
+      access.memberships.some((membership) => membership.active && membership.organizationId === org.id) &&
+      grants.some((grant) =>
       grant.scopeType === 'network' ||
       (grant.scopeType === 'organization' && grant.scopeId === org.id) ||
       (grant.scopeType === 'reportingArea' && (org.reportingAreaIds as string[]).includes(grant.scopeId)),
-    );
+    ));
   });
   const org = organizations.find((item) => item.id === orgId) ?? organizations[0];
   const areaIds = Array.isArray(org?.reportingAreaIds) ? org.reportingAreaIds as string[] : [];
@@ -48,17 +50,21 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
     setBusy(true);
     loadSales(seasonId, org.id, areaId).then((saved) => {
       if (!active) return;
-      onChange((current) => [...current, ...saved.filter((row) => !current.some((item) => item.id === row.id))]);
+      onChange((current) => [
+        ...current.filter((row) => !(row.seasonId === seasonId && row.organizationId === org.id && row.reportingAreaId === areaId)),
+        ...saved,
+      ]);
       setLoadedScope(scope);
     }).catch((error) => { if (active) setStatus(persistenceMessage(error, language)); })
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
   }, [scope, developmentMode, onChange]);
 
-  const editable = !busy && loadedScope === scope && canWrite && Boolean(org) && (developmentMode || access?.isAdmin || (access?.grants ?? []).some((grant) =>
+  const editable = !busy && loadedScope === scope && canWrite && Boolean(org) && (access?.isAdmin || (access?.profile?.active === true &&
+    access.memberships.some((membership) => membership.active && membership.organizationId === org?.id) && (access?.grants ?? []).some((grant) =>
     grant.active && grant.permissions.includes('ticketSales.write') &&
     (grant.scopeType === 'network' || (grant.scopeType === 'organization' && grant.scopeId === org?.id) || (grant.scopeType === 'reportingArea' && grant.scopeId === areaId)),
-  ));
+  )));
   const money = (value: number) => new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'it-IT', { style: 'currency', currency: 'EUR' }).format(value);
   const products = Object.keys(productLabels) as ProductCode[];
   const cells = products.map((productCode) => {
