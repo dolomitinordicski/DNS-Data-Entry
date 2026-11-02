@@ -2,7 +2,7 @@ import {execFileSync} from 'node:child_process';
 import {readFileSync,existsSync} from 'node:fs';
 import assert from 'node:assert/strict';
 const dir='.acceptance-upstream';
-const track='18e300a593859d7e470243f1bf8f26d409aa76c0';
+const track='37ce2e49a609b758f239cc90a37a92e4e5bac951';
 const flyer='48cfbca2b902a15d316fc54e2638f5bd74f72909';
 if(existsSync(dir))throw Error('Use a clean checkout for upstream verification');
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});

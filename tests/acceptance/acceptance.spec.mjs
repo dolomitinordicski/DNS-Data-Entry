@@ -195,5 +195,7 @@ test('Document existing shared reference tariff policy separately from protected
   await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();
   const common=await page.evaluate(async()=> (await import('/tests/acceptance/operations.ts')).read('ticketPricingConfigs/test-price'));
   expect(common.scopeType).toBe('reportingArea');expect(common.unitPrice).toBe(10);
+  const network=await page.evaluate(async()=> (await import('/tests/acceptance/operations.ts')).read('ticketPricingConfigs/2026-27-network-wk-dns-official-regular'));
+  expect(network.scopeType).toBe('network');expect(network.unitPrice).toBe(65);
   console.log('POLICY LIMIT: common network/area tariffs remain readable to active profiles even with Data Entry none; organization overrides are isolated.');
 });

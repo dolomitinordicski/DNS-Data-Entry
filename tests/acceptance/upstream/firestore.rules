@@ -26,15 +26,20 @@ service cloud.firestore {
           || (grant.validTo is string && request.time <= timestamp.value(grant.validTo)));
     }
 
-    function hasGrant(scopeType, scopeId, permission) {
+    // Permission snapshot only. Callers must separately require an active user.
+    function grantAllows(scopeType, scopeId, permission) {
       let grantId = request.auth.uid + "__" + scopeType + "__" + scopeId;
       let grantPath = /databases/$(database)/documents/accessGrants/$(grantId);
-      return activeUser()
-        && scopeId != ''
-        && exists(grantPath)
-        && get(grantPath).data.active == true
-        && grantWithinDates(get(grantPath).data)
-        && permission in get(grantPath).data.permissions;
+      let grant = get(grantPath);
+      return scopeId != ''
+        && grant != null
+        && grant.data.active == true
+        && grantWithinDates(grant.data)
+        && permission in grant.data.permissions;
+    }
+
+    function hasGrant(scopeType, scopeId, permission) {
+      return activeUser() && grantAllows(scopeType, scopeId, permission);
     }
 
     function hasAnyGrantForScope(scopeType, scopeId) {
@@ -136,16 +141,21 @@ service cloud.firestore {
     // Missing policy keeps existing grants working during staged rollout.
     function dataEntryMatrixAllows(orgId, write) {
       let policyPath = /databases/$(database)/documents/organizationToolAccess/$(orgId);
+      // The explicit absent-policy fallback preserves the existing rollout
+      // contract. Emulator probe verifies missing policy allows legacy grants,
+      // while an existing policy with a missing membership remains denied.
+      return configuredDataEntryMatrixAllows(orgId, write) || !exists(policyPath);
+    }
+
+    function configuredDataEntryMatrixAllows(orgId, write) {
+      let policyPath = /databases/$(database)/documents/organizationToolAccess/$(orgId);
       let memberPath = /databases/$(database)/documents/memberships/$(request.auth.uid + '__' + orgId);
-      // Reuse snapshots and avoid a member lookup during legacy policy rollout.
-      let policy = exists(policyPath) ? get(policyPath) : null;
-      let member = policy == null ? null : get(memberPath);
-      return policy == null
-        || (member != null
-          && member.data.active == true
-          && grantWithinDates(member.data)
-          && (policy.data.tools.get('data-entry', 'none') == 'write'
-            || (!write && policy.data.tools.get('data-entry', 'none') == 'read')));
+      let policy = get(policyPath).data;
+      let member = get(memberPath).data;
+      return member.active == true
+          && grantWithinDates(member)
+          && (policy.tools.get('data-entry', 'none') == 'write'
+            || (!write && policy.tools.get('data-entry', 'none') == 'read'));
     }
 
     function hasOrderPermission(permission, data) {
@@ -809,12 +819,13 @@ service cloud.firestore {
     }
 
     function hasKpPermission(permission, data) {
-      return isAdmin()
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return signedIn() && profile.active == true && ('dns-admin' in profile.globalRoles
         || ((data.entityType != 'organization'
               || dataEntryMatrixAllows(data.entityId, permission != 'kp.read'))
-          && ((data.entityType == 'organization' && hasGrant('organization',data.entityId,permission))
-            || hasGrant('reportingArea',data.reportingAreaId,permission)
-            || hasGrant('network','dolomiti-nordicski',permission)));
+          && (grantAllows('reportingArea',data.reportingAreaId,permission)
+            || (data.entityType == 'organization' && grantAllows('organization',data.entityId,permission))
+            || grantAllows('network','dolomiti-nordicski',permission))));
     }
 
     function validKpMilestone(data) {
@@ -831,19 +842,24 @@ service cloud.firestore {
     }
 
     function validKpMilestoneValue(value, seasonId) {
-      let snowTotal = value.naturalSnowKm + value.artificialSnowKm;
+      let opened = value.openedKm;
+      let natural = value.naturalSnowKm;
+      let artificial = value.artificialSnowKm;
+      let snowTotal = natural + artificial;
       return value.keys().hasOnly(['milestoneId','openedKm','naturalSnowKm','artificialSnowKm'])
         && value.milestoneId is string
         && get(/databases/$(database)/documents/kpMilestones/$(value.milestoneId)).data.seasonId == seasonId
-        && value.openedKm is number && value.openedKm >= 0
-        && value.naturalSnowKm is number && value.naturalSnowKm >= 0
-        && value.artificialSnowKm is number && value.artificialSnowKm >= 0
-        && value.artificialSnowKm <= value.openedKm
-        && snowTotal - value.openedKm < 0.011
-        && value.openedKm - snowTotal < 0.011;
+        && opened is number && opened >= 0
+        && natural is number && natural >= 0
+        && artificial is number && artificial >= 0
+        && artificial <= opened
+        && math.abs(snowTotal - opened) < 0.011;
     }
 
     function validKpEntry(data) {
+      let milestones = data.milestones;
+      let referenceKm = data.referenceKm;
+      let seasonId = data.seasonId;
       return data.keys().hasOnly(['id','seasonId','entityType','entityId','reportingAreaId','referenceKm','milestones','includeInKp','exclusionReason','provenance','notes','revision','updatedBy','updatedAt'])
         && !historicalLocked(data)
         && data.id == data.seasonId + '__' + data.entityId
@@ -851,15 +867,14 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/seasons/$(data.seasonId))
         && data.entityType == 'organization'
         && data.entityId is string
-        && exists(/databases/$(database)/documents/organizations/$(data.entityId))
         && data.reportingAreaId in get(/databases/$(database)/documents/organizations/$(data.entityId)).data.reportingAreaIds
-        && data.referenceKm.keys().hasOnly(['uniqueNetworkKm','potentialOperationalKm'])
-        && data.referenceKm.uniqueNetworkKm is number && data.referenceKm.uniqueNetworkKm >= 0
-        && data.referenceKm.potentialOperationalKm is number && data.referenceKm.potentialOperationalKm >= 0
-        && data.milestones is list && data.milestones.size() <= 3
-        && (data.milestones.size() < 1 || validKpMilestoneValue(data.milestones[0],data.seasonId))
-        && (data.milestones.size() < 2 || validKpMilestoneValue(data.milestones[1],data.seasonId))
-        && (data.milestones.size() < 3 || validKpMilestoneValue(data.milestones[2],data.seasonId))
+        && referenceKm.keys().hasOnly(['uniqueNetworkKm','potentialOperationalKm'])
+        && referenceKm.uniqueNetworkKm is number && referenceKm.uniqueNetworkKm >= 0
+        && referenceKm.potentialOperationalKm is number && referenceKm.potentialOperationalKm >= 0
+        && milestones is list && milestones.size() <= 3
+        && (milestones.size() < 1 || validKpMilestoneValue(milestones[0],seasonId))
+        && (milestones.size() < 2 || validKpMilestoneValue(milestones[1],seasonId))
+        && (milestones.size() < 3 || validKpMilestoneValue(milestones[2],seasonId))
         && data.includeInKp is bool
         && data.exclusionReason is string
         && data.provenance.sourceSystem == 'manual-data-entry'
@@ -1009,11 +1024,11 @@ service cloud.firestore {
         && document.split('__').size() == 2
         && hasKpPermission('kp.read', {'entityType':'organization', 'entityId':document.split('__')[1],
           'reportingAreaId':organizationArea(document.split('__')[1])});
-      allow create: if validKpEntry(request.resource.data)
-        && hasKpPermission('kp.write',request.resource.data)
+      allow create: if hasKpPermission('kp.write',request.resource.data)
         && request.resource.data.id == document
-        && request.resource.data.revision == 1;
-      allow update: if validKpEntry(request.resource.data)
+        && request.resource.data.revision == 1
+        && validKpEntry(request.resource.data);
+      allow update: if resource != null
         && hasKpPermission('kp.write',resource.data)
         && request.resource.data.id == resource.data.id
         && request.resource.data.seasonId == resource.data.seasonId
@@ -1022,7 +1037,8 @@ service cloud.firestore {
         && request.resource.data.reportingAreaId == resource.data.reportingAreaId
         && resource.data.provenance.dataStatus == 'draft'
         && request.resource.data.revision == resource.data.revision + 1
-        && archived('kpEntries',document);
+        && archived('kpEntries',document)
+        && validKpEntry(request.resource.data);
       allow delete: if false;
 
       match /revisions/{revision} {
