@@ -9,7 +9,7 @@ const permissions=['pricing.read','pricing.manage','ticketSales.read','ticketSal
 test.beforeAll(async()=>{
   if(process.env.GCLOUD_PROJECT!=='demo-dns-identity'||process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8188'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9098') throw Error('Dedicated loopback demo required');
   env=await initializeTestEnvironment({projectId:'demo-dns-identity',firestore:{host:'127.0.0.1',port:8188,rules:fs.readFileSync('tests/acceptance/upstream/firestore.rules','utf8')}});
-  for(const name of ['admin','writer','reader','none','outsider','inactive','second','area']){
+  for(const name of ['admin','writer','reader','none','outsider','inactive','second','area','unrelated']){
     const email=`${name}-${Date.now()}@dns-test.invalid`;
     const response=await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-only',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,returnSecureToken:true})});
     const account=await response.json(); if(!response.ok) throw Error(JSON.stringify(account));
@@ -31,7 +31,7 @@ test.beforeEach(async({page})=>{
       const id=name==='second'?other:org;
       await put(`memberships/${uid}__${id}`,{userId:uid,organizationId:id,active:true});
       if(name==='area') await put(`accessGrants/${uid}__reportingArea__${area}`,{userId:uid,scopeType:'reportingArea',scopeId:area,active:true,permissions:permissions.filter(p=>p!=='pricing.manage')});
-      else await put(`accessGrants/${uid}__organization__${id}`,{userId:uid,scopeType:'organization',scopeId:id,active:true,permissions});
+      else await put(`accessGrants/${uid}__organization__${id}`,{userId:uid,scopeType:'organization',scopeId:id,active:true,permissions:name==='unrelated'?['flyer.read']:permissions});
     }
     await put(`organizationToolAccess/${org}`,{organizationId:org,tools:{'data-entry':'write'}});
     await put(`organizationToolAccess/${other}`,{organizationId:other,tools:{'data-entry':'write'}});
@@ -128,7 +128,7 @@ for(const [name,level]of [['reader','read'],['none','none']])test(`Identity ${le
   await expect(service(page,'pricing.saveSales',[[{id:'denied-sales',seasonId:'2026-27',organizationId:org,reportingAreaId:area,productCode:'day',salesChannel:'official',salesPeriod:'regular',quantity:2,amountOverride:null,amountOverrideReason:''}],[price()]])).rejects.toThrow();
 });
 test('Unauthorized and inactive users cannot access protected UI',async({page})=>{
-  for(const name of ['outsider','inactive']){await login(page,name);await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();await logout(page);}
+  for(const name of ['outsider','inactive','unrelated']){await login(page,name);await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();await logout(page);}
 });
 test('Two simultaneous organizations: own reads allowed and foreign queries denied',async({page,browser})=>{
   await login(page);const context=await browser.newContext();const second=await context.newPage();await login(second,'second');
@@ -207,5 +207,5 @@ test('Document existing shared reference tariff policy separately from protected
   expect(common.scopeType).toBe('reportingArea');expect(common.unitPrice).toBe(10);
   const network=await page.evaluate(async()=> (await import('/tests/acceptance/operations.ts')).read('ticketPricingConfigs/2026-27-network-wk-dns-official-regular'));
   expect(network.scopeType).toBe('network');expect(network.unitPrice).toBe(65);
-  console.log('POLICY LIMIT: common network/area tariffs remain readable to active profiles even with Data Entry none; organization overrides are isolated.');
+  console.log('AUTHORIZED SHARED REFERENCES: common network/area tariffs are readable to active profiles even with Data Entry none; private organization overrides remain isolated (confirmed by user on 2026-11-02).');
 });

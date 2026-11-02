@@ -11,3 +11,5 @@ GitHub Actions `Integrated Data Entry acceptance` builds the production app, che
 For a clean local checkout with Node 22 and Java 21, follow the installation and emulator command in `.github/workflows/acceptance.yml`. Keep the three emulator environment variables exactly as recorded there. The project safety guard rejects other values.
 
 Common network and area tariffs remain shared reference data for active DNS profiles under the existing policy. Organization overrides are private and checked separately. Account provisioning and the exception list in production are not modified by this suite.
+
+The shared tariff reference policy was explicitly confirmed by the user on 2 November 2026: Data Entry none restricts protected organization records and module access, while common network/area tariffs remain readable reference data.

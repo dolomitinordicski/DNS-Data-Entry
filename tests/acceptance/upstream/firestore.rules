@@ -615,10 +615,19 @@ service cloud.firestore {
 
     function canReadNewSalesDocument(document) {
       let parts = document.split('__');
-      return isAdmin() || (parts.size() == 6 && (
-        hasGrant('network','dolomiti-nordicski','ticketSales.read')
-        || hasGrant('organization',parts[1],'ticketSales.read')
-        || hasGrant('reportingArea',parts[2],'ticketSales.read')));
+      return isAdmin() || (parts.size() == 6 && hasSalesPermission('ticketSales.read',
+        {'organizationId':parts[1], 'reportingAreaId':parts[2]}));
+    }
+
+    // Same active-profile, scoped grants, dates and matrix cap as orders, with
+    // snapshot reuse limited to seasonal sales (the ordinary order path stays unchanged).
+    function hasSalesPermission(permission, data) {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return signedIn() && profile.active == true && ('dns-admin' in profile.globalRoles
+        || (kpMatrixAllows(data.organizationId, permission == 'ticketSales.write')
+          && (kpGrantAllows('reportingArea',data.reportingAreaId,permission)
+            || kpGrantAllows('organization',data.organizationId,permission)
+            || kpGrantAllows('network','dolomiti-nordicski',permission))));
     }
 
     // DNS Faktura commercial rates. Rates are internal DNS Commercial
@@ -809,13 +818,13 @@ service cloud.firestore {
 
     match /ticketSales/{document} {
       allow get: if (resource == null && canReadNewSalesDocument(document))
-        || (resource != null && hasOrderPermission('ticketSales.read',resource.data));
-      allow list: if hasOrderPermission('ticketSales.read',resource.data);
+        || (resource != null && hasSalesPermission('ticketSales.read',resource.data));
+      allow list: if hasSalesPermission('ticketSales.read',resource.data);
       allow create: if !historicalLocked(request.resource.data) && validSales(request.resource.data) && salesPricingMatches(request.resource.data)
-        && hasOrderPermission('ticketSales.write',request.resource.data)
+        && hasSalesPermission('ticketSales.write',request.resource.data)
         && request.resource.data.id == document && request.resource.data.revision == 1;
       allow update: if !historicalLocked(request.resource.data) && validSales(request.resource.data) && salesPricingMatches(request.resource.data)
-        && hasOrderPermission('ticketSales.write',resource.data)
+        && hasSalesPermission('ticketSales.write',resource.data)
         && request.resource.data.id == resource.data.id && request.resource.data.draftKey == resource.data.draftKey
         && request.resource.data.organizationId == resource.data.organizationId && request.resource.data.reportingAreaId == resource.data.reportingAreaId
         && request.resource.data.seasonId == resource.data.seasonId && request.resource.data.productCode == resource.data.productCode
@@ -824,8 +833,8 @@ service cloud.firestore {
         && request.resource.data.revision == resource.data.revision + 1 && archived('ticketSales',document);
       allow delete: if false;
       match /revisions/{revision} {
-        allow read: if hasOrderPermission('ticketSales.read',get(/databases/$(database)/documents/ticketSales/$(document)).data);
-        allow create: if hasOrderPermission('ticketSales.write',get(/databases/$(database)/documents/ticketSales/$(document)).data)
+        allow read: if hasSalesPermission('ticketSales.read',get(/databases/$(database)/documents/ticketSales/$(document)).data);
+        allow create: if hasSalesPermission('ticketSales.write',get(/databases/$(database)/documents/ticketSales/$(document)).data)
           && request.resource.data == get(/databases/$(database)/documents/ticketSales/$(document)).data
           && getAfter(/databases/$(database)/documents/ticketSales/$(document)).data.revision == request.resource.data.revision + 1;
         allow update, delete: if false;

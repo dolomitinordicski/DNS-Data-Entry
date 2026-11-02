@@ -124,7 +124,8 @@ function App() {
   const effectiveAccess = access;
   const hasToolAccess =
     (effectiveAccess?.profile?.active === true &&
-      (effectiveAccess.isAdmin || effectiveAccess.permissions.size > 0));
+      (effectiveAccess.isAdmin || Object.values(MODULE_READ_PERMISSION).some(permission =>
+        effectiveAccess.permissions.has(permission))));
 
   useEffect(() => {
     const foundation = initDNSDataEntryFoundation();
