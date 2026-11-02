@@ -3,18 +3,26 @@ import { db } from './dnsCore';
 import { auth } from './auth';
 import type { PricingDraftRow } from '../types/pricing';
 import type { SalesDraftRow } from '../types/sales';
+import type { DNSAccessContext } from '../types/access';
+import { organizationAllows } from './organizationAccess';
 
 export function resolvePricing(rows: PricingDraftRow[], sale: SalesDraftRow) {
   return (['organization', 'reportingArea', 'network'] as const).map((scope) => rows.find((row) =>
-    row.seasonId === sale.seasonId && row.scopeType === scope &&
+    row.unitPrice !== null && row.unitPrice !== undefined && row.seasonId === sale.seasonId && row.scopeType === scope &&
     row.scopeId === (scope === 'organization' ? sale.organizationId : scope === 'reportingArea' ? sale.reportingAreaId : 'dolomiti-nordicski') &&
     row.productCode === sale.productCode && row.salesChannel === sale.salesChannel && row.salesPeriod === sale.salesPeriod,
   )).find((row) => row?.unitPrice !== null && row?.unitPrice !== undefined);
 }
 
-export async function loadPricing(seasonId: string): Promise<PricingDraftRow[]> {
-  const snapshot = await getDocs(query(collection(db, 'ticketPricingConfigs'), where('seasonId', '==', seasonId)));
-  return snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as PricingDraftRow));
+export async function loadPricing(seasonId: string, access: DNSAccessContext): Promise<PricingDraftRow[]> {
+  const base = collection(db, 'ticketPricingConfigs');
+  const queries = access.isAdmin
+    ? [query(base, where('seasonId', '==', seasonId))]
+    : [query(base, where('seasonId', '==', seasonId), where('scopeType', 'in', ['network','reportingArea'])),
+      ...access.memberships.filter(member => organizationAllows(access, member.organizationId)).map(member =>
+        query(base, where('seasonId','==',seasonId),where('scopeType','==','organization'),where('scopeId','==',member.organizationId)))];
+  const snapshots = await Promise.all(queries.map(item => getDocs(item)));
+  return snapshots.flatMap(snapshot => snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as PricingDraftRow)));
 }
 
 async function saveRevision(collectionName: string, id: string, expectedRevision: number, payload: Record<string, unknown>, pricing?: PricingDraftRow) {

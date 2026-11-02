@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { KP_MILESTONES_2026_27 } from '@dolomitinordicski/dns-shared-data/kp-setup-2026-27';
 import { RegionLogos } from '../../components/RegionLogos';
+import { organizationAllows } from '../../services/organizationAccess';
 import type { DNSAccessContext } from '../../types/access';
 import type { CanonicalRecord, DNSCoreMaster } from '../../types/master';
 import {
@@ -165,14 +166,14 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
     && grant.permissions.includes('kp.write'));
 
   const visibleOrganizations = useMemo(() => {
-    if (networkRead) return master.organizations;
+    if (networkRead) return master.organizations.filter(org => organizationAllows(access, org.id));
     const readableOrgs = new Set(grants.filter((grant) =>
       grant.scopeType === 'organization' && grant.permissions.includes('kp.read')).map((grant) => grant.scopeId));
     const readableAreas = new Set(grants.filter((grant) =>
       grant.scopeType === 'reportingArea' && grant.permissions.includes('kp.read')).map((grant) => grant.scopeId));
     return master.organizations.filter((organization) =>
-      readableOrgs.has(organization.id)
-      || ids(organization.reportingAreaIds).some((areaId) => readableAreas.has(areaId)));
+      organizationAllows(access, organization.id) && (readableOrgs.has(organization.id)
+      || ids(organization.reportingAreaIds).some((areaId) => readableAreas.has(areaId))));
   }, [master.organizations, grants, networkRead]);
 
   const visibleAreaIds = useMemo(() => {
@@ -190,7 +191,7 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
     areaOrganizations.find((organization) => organization.id === selectedOrgId) ?? areaOrganizations[0];
 
   function canEditOrganization(organization: CanonicalRecord | undefined) {
-    if (!organization || developmentMode || !canWrite) return false;
+    if (!organization || developmentMode || !canWrite || !organizationAllows(access, organization.id, true)) return false;
     if (networkWrite) return true;
     const areaIds = ids(organization.reportingAreaIds);
     return grants.some((grant) => grant.permissions.includes('kp.write') && (

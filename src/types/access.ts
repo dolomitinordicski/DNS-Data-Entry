@@ -47,6 +47,7 @@ export interface DNSAccessGrant {
 }
 
 export interface DNSAccessContext {
+  organizationLevels?: Record<string, 'write' | 'read' | 'none'>;
   profile: DNSUserProfile | null;
   memberships: DNSMembership[];
   grants: DNSAccessGrant[];

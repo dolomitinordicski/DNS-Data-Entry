@@ -66,11 +66,6 @@ const copy = {
     admin: 'DNS Admin',
     scoped: 'Freigeschalteter Benutzer',
     readOnly: 'Nur Lesen',
-    devMode: 'DEV MODE',
-    devAdmin: 'DNS ADMIN',
-    devArea: 'AREA TEST',
-    devAreaScope: '3 Zinnen · simulierte Bereichssicht',
-    exitDev: 'Dev-Modus verlassen',
   },
   it: {
     operations: 'Operazioni',
@@ -91,11 +86,6 @@ const copy = {
     admin: 'DNS Admin',
     scoped: 'Utente abilitato',
     readOnly: 'Sola lettura',
-    devMode: 'DEV MODE',
-    devAdmin: 'DNS ADMIN',
-    devArea: 'AREA TEST',
-    devAreaScope: '3 Zinnen · vista area simulata',
-    exitDev: 'Esci dalla modalità sviluppo',
   },
 } as const;
 
@@ -147,6 +137,8 @@ function App() {
     return subscribeToAuth((user) => {
       setAuthReady(false);
       setSalesRows([]);
+      setPricingRows([]);
+      setPricingLoaded(false);
       setAuthUser(user);
       setAccess(null);
 
@@ -205,9 +197,10 @@ function App() {
     if (historicalSeason || !activeSeason || !authReady || !effectiveAccess?.profile?.active) { setPricingBusy(false); return; }
     setPricingBusy(true);
     setPricingStatus('');
-    loadPricing(String(activeSeason.id)).then((saved) => {
+    loadPricing(String(activeSeason.id), effectiveAccess).then((saved) => {
       if (!active) return;
-      setPricingRows((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
+      const defaults = createInitialPricingDraft(String(activeSeason.id), master?.reportingAreas.map(area => area.id) ?? []);
+      setPricingRows([...defaults.filter(row => !saved.some(item => item.id === row.id)), ...saved]);
       setPricingLoaded(true);
     }).catch((error) => { if (active) setPricingStatus(persistenceMessage(error, language)); })
       .finally(() => { if (active) setPricingBusy(false); });

@@ -47,9 +47,8 @@ function isCurrentlyActive(
   now = new Date(),
 ) {
   if (!item.active) return false;
-  const iso = now.toISOString().slice(0, 10);
-  if (item.validFrom && item.validFrom > iso) return false;
-  if (item.validTo && item.validTo < iso) return false;
+  if (item.validFrom && (!Number.isFinite(Date.parse(item.validFrom)) || Date.parse(item.validFrom) > now.getTime())) return false;
+  if (item.validTo && (!Number.isFinite(Date.parse(item.validTo)) || Date.parse(item.validTo) < now.getTime())) return false;
   return true;
 }
 
@@ -87,18 +86,32 @@ export async function loadAccessContext(uid: string): Promise<DNSAccessContext> 
   const isAdmin =
     profile?.active === true && profile.globalRoles?.includes('dns-admin') === true;
 
+  const organizationLevels = Object.fromEntries(await Promise.all(memberships.map(async member => {
+    const policy = await getDoc(doc(db, 'organizationToolAccess', member.organizationId));
+    const level = policy.exists() ? policy.data().tools?.['data-entry'] ?? 'none' : 'write';
+    return [member.organizationId, ['write','read'].includes(level) ? level : 'none'];
+  }))) as Record<string, 'write'|'read'|'none'>;
+  const levels = Object.values(organizationLevels);
+  const usableGrants = isAdmin ? grants : grants.map(grant => ({...grant,
+    permissions: grant.permissions.filter(permission => {
+      const allowed = grant.scopeType === 'organization' ? [organizationLevels[grant.scopeId] ?? 'none'] : levels;
+      return allowed.some(level => level === 'write' || (level === 'read' && permission.endsWith('.read')));
+    }),
+  })).filter(grant => grant.permissions.length > 0);
+
   const permissions = new Set<DNSPermission>(
     isAdmin
       ? ADMIN_PERMISSIONS
       : profile?.active
-        ? grants.flatMap((grant) => grant.permissions)
+        ? usableGrants.flatMap((grant) => grant.permissions)
         : [],
   );
 
   return {
     profile,
     memberships,
-    grants,
+    grants: usableGrants,
+    organizationLevels,
     permissions,
     isAdmin,
   };

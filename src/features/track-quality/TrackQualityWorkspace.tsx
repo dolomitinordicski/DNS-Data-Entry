@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import type { DNSAccessContext } from '../../types/access';
 import type { DNSCoreMaster } from '../../types/master';
 import { TrackQualityEntry } from './TrackQualityEntry';
+import { organizationAllows } from '../../services/organizationAccess';
 
 export function TrackQualityWorkspace({ seasonId, language, master, access }: {
   seasonId: string; language: 'it'|'de'; master: DNSCoreMaster; access: DNSAccessContext;
 }) {
   const choices = useMemo(() => master.organizations.flatMap((organization) => {
     const areas = Array.isArray(organization.reportingAreaIds) ? organization.reportingAreaIds as string[] : [];
-    return areas.filter((areaId) => access.isAdmin || (access.profile?.active === true &&
+    return areas.filter((areaId) => access.isAdmin || (organizationAllows(access, organization.id) &&
       access.memberships.some((membership) => membership.active && membership.organizationId === organization.id) &&
       access.grants.some((grant) =>
       grant.active && grant.permissions.includes('kp.read') &&
@@ -21,7 +22,7 @@ export function TrackQualityWorkspace({ seasonId, language, master, access }: {
   const [choiceId, setChoiceId] = useState('');
   const selected = choices.find((choice) => choice.id === choiceId) ?? choices[0];
   if (!selected) return <p>{language === 'it' ? 'Nessuna organizzazione autorizzata.' : 'Keine berechtigte Organisation.'}</p>;
-  const canWrite = access.isAdmin || (access.profile?.active === true &&
+  const canWrite = access.isAdmin || (organizationAllows(access, selected.organizationId, true) &&
     access.memberships.some((membership) => membership.active && membership.organizationId === selected.organizationId) &&
     access.grants.some((grant) =>
     grant.active && grant.permissions.includes('kp.write') &&

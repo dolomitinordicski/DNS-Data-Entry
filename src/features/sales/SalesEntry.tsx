@@ -6,6 +6,7 @@ import type { DNSCoreMaster } from '../../types/master';
 import type { DNSAccessContext } from '../../types/access';
 import type { PricingDraftRow, ProductCode, SalesChannel, SalesPeriod } from '../../types/pricing';
 import type { SalesDraftRow } from '../../types/sales';
+import { organizationAllows } from '../../services/organizationAccess';
 
 const copy = {
   de: { title: 'Verkäufe erfassen', draft: 'Entwurf · explizit in Firebase speichern', intro: 'Tatsächlich verkaufte Tickets je Organisation, Kanal und Periode. Bestellungen werden nicht als Verkäufe übernommen.', organization: 'Organisation', area: 'Gebiet', quantity: 'Verkaufte Tickets', price: 'Tarif', calculated: 'Berechnet', actual: 'Gemeldeter Umsatz', reason: 'Begründung der Abweichung', total: 'Umsatz · vollständige Zeilen', missing: 'Tarif fehlt', pending: 'Unvollständige Angaben', complete: 'Ausgefüllte Zeilen vollständig', empty: 'Keine Organisation für diesen Bereich freigeschaltet.', source: 'Gespeicherte Zeilen behalten ihren Preis-Snapshot; Änderungen verwenden den aktuellen Tarif', help: 'Gemeldeten Umsatz nur bei Abweichungen eintragen; eine Begründung ist dann erforderlich. Leere Menge bedeutet nicht gemeldet, 0 bedeutet keine Verkäufe.', warning: 'Nicht gespeicherte Änderungen gehen beim Neuladen verloren. Tarife zuerst in Firebase speichern.' },
@@ -27,7 +28,7 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
   const grants = access?.grants.filter((grant) => grant.active && grant.permissions.includes('ticketSales.read')) ?? [];
   const organizations = master.organizations.filter((org) => {
     if (!Array.isArray(org.reportingAreaIds) || !org.reportingAreaIds.length) return false;
-    return access?.isAdmin || (access?.profile?.active === true &&
+    return access?.isAdmin || (access && organizationAllows(access, org.id) &&
       access.memberships.some((membership) => membership.active && membership.organizationId === org.id) &&
       grants.some((grant) =>
       grant.scopeType === 'network' ||
@@ -78,7 +79,7 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
       setBusy(false);
     }
   }
-  const editable = !busy && loadedScope === scope && canWrite && Boolean(org) && (access?.isAdmin || (access?.profile?.active === true &&
+  const editable = !busy && loadedScope === scope && canWrite && Boolean(org) && (access?.isAdmin || (access && organizationAllows(access, org!.id, true) &&
     access.memberships.some((membership) => membership.active && membership.organizationId === org?.id) && (access?.grants ?? []).some((grant) =>
     grant.active && grant.permissions.includes('ticketSales.write') &&
     (grant.scopeType === 'network' || (grant.scopeType === 'organization' && grant.scopeId === org?.id) || (grant.scopeType === 'reportingArea' && grant.scopeId === areaId)),

@@ -13,6 +13,7 @@ import {
 import { auth } from './auth';
 import { db } from './dnsCore';
 import type { DNSAccessContext } from '../types/access';
+import { organizationAllows } from './organizationAccess';
 
 export type KpMilestoneDoc = {
   id: string;
@@ -100,18 +101,21 @@ export async function loadKpMilestones(seasonId: string): Promise<KpMilestoneDoc
 
 export async function loadKpEntries(seasonId: string, access: DNSAccessContext): Promise<KpEntryDoc[]> {
   const grants = access.grants.filter((grant) => grant.active && grant.permissions.includes('kp.read'));
-  const unrestricted =
-    access.isAdmin ||
-    grants.some((grant) => grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski');
-
-  const queries = unrestricted
+  const readableOrganizations = await Promise.all(access.memberships.filter(member =>
+    organizationAllows(access, member.organizationId)).map(async member => {
+    const org = await getDoc(doc(db, 'organizations', member.organizationId));
+    return grants.some(grant => grant.scopeType === 'network' ||
+      (grant.scopeType === 'organization' && grant.scopeId === member.organizationId) ||
+      (grant.scopeType === 'reportingArea' && org.data()?.reportingAreaIds?.includes(grant.scopeId)))
+      ? member.organizationId : null;
+  }));
+  const queries = access.isAdmin
     ? [query(collection(db, 'kpEntries'), where('seasonId', '==', seasonId))]
-    : grants
-      .filter((grant) => grant.scopeType === 'organization' || grant.scopeType === 'reportingArea')
-      .map((grant) => query(
+    : readableOrganizations.filter((id): id is string => id !== null)
+      .map((id) => query(
         collection(db, 'kpEntries'),
         where('seasonId', '==', seasonId),
-        where(grant.scopeType === 'organization' ? 'entityId' : 'reportingAreaId', '==', grant.scopeId),
+        where('entityId', '==', id),
       ));
 
   const snapshots = await Promise.all(queries.map((item) => getDocs(item)));

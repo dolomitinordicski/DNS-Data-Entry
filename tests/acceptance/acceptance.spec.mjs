@@ -102,7 +102,7 @@ for(const [name,level]of [['reader','read'],['none','none']])test(`Identity ${le
   await expect(page.getByRole('button',{name:'Aggiungi pista',exact:true})).toHaveCount(0);
 });
 test('Unauthorized and inactive users cannot access protected UI',async({page})=>{
-  for(const name of ['outsider','inactive']){await login(page,name);await expect(page.getByText('Accesso non abilitato',{exact:true})).toBeVisible();await page.getByRole('button',{name:'Esci',exact:true}).click();}
+  for(const name of ['outsider','inactive']){await login(page,name);await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();await page.getByRole('button',{name:'Esci',exact:true}).click();}
 });
 test('Two simultaneous organizations: own reads allowed and foreign queries denied',async({page,browser})=>{
   await login(page);const context=await browser.newContext();const second=await context.newPage();await login(second,'second');

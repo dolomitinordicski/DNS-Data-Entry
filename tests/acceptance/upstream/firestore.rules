@@ -543,8 +543,18 @@ service cloud.firestore {
       return getAfter(/databases/$(database)/documents/$(collectionName)/$(document)/revisions/$(revisionId)).data == resource.data;
     }
 
+    function readPricing(data) {
+      return isAdmin() || (activeUser() && (data.scopeType != 'organization'
+        || (dataEntryMatrixAllows(data.scopeId, false)
+          && (hasGrant('organization',data.scopeId,'pricing.read')
+            || hasGrant('organization',data.scopeId,'ticketSales.read')
+            || hasGrant('network','dolomiti-nordicski','pricing.read')
+            || hasGrant('network','dolomiti-nordicski','ticketSales.read')))));
+    }
+
     match /ticketPricingConfigs/{document} {
-      allow read: if activeUser();
+      allow read: if readPricing(resource.data);
+      allow get: if !exists(/databases/$(database)/documents/ticketPricingConfigs/$(document)) && activeUser();
       allow create: if !historicalLocked(request.resource.data) && validPricing(request.resource.data) && managePricing(request.resource.data)
         && request.resource.data.id == document && request.resource.data.revision == 1;
       allow update: if !historicalLocked(request.resource.data) && validPricing(request.resource.data) && managePricing(resource.data)
@@ -557,7 +567,7 @@ service cloud.firestore {
         && request.resource.data.revision == resource.data.revision + 1 && archived('ticketPricingConfigs',document);
       allow delete: if false;
       match /revisions/{revision} {
-        allow read: if activeUser();
+        allow read: if readPricing(get(/databases/$(database)/documents/ticketPricingConfigs/$(document)).data);
         allow create: if managePricing(get(/databases/$(database)/documents/ticketPricingConfigs/$(document)).data)
           && request.resource.data == get(/databases/$(database)/documents/ticketPricingConfigs/$(document)).data
           && getAfter(/databases/$(database)/documents/ticketPricingConfigs/$(document)).data.revision == request.resource.data.revision + 1;
@@ -955,6 +965,11 @@ service cloud.firestore {
 
     match /trackQualityReports/{document} {
       allow read: if qualityCan('kp.read', resource.data);
+      // Transactions read a missing record before creating it. Decode only the
+      // canonical ID and apply the same scope policy; existing reads stay above.
+      allow get: if !exists(/databases/$(database)/documents/trackQualityReports/$(document))
+        && document.split('__').size() == 4
+        && qualityCan('kp.read', { 'organizationId': document.split('__')[2], 'reportingAreaId': document.split('__')[1] });
       allow create: if qualityValid(request.resource.data)
         && qualityCan('kp.write', request.resource.data)
         && request.resource.data.id == document
@@ -980,6 +995,10 @@ service cloud.firestore {
 
     match /kpEntries/{document} {
       allow read: if hasKpPermission('kp.read',resource.data);
+      allow get: if !exists(/databases/$(database)/documents/kpEntries/$(document))
+        && document.split('__').size() == 2
+        && (isAdmin() || (dataEntryMatrixAllows(document.split('__')[1], false)
+          && hasGrant('organization',document.split('__')[1],'kp.read')));
       allow create: if validKpEntry(request.resource.data)
         && hasKpPermission('kp.write',request.resource.data)
         && request.resource.data.id == document
