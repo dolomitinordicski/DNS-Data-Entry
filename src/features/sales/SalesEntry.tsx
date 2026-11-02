@@ -102,7 +102,7 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
     setBusy(true);
     setStatus('');
     try {
-      const saved = await saveSales(cells.filter((cell) => !cell.draft.pricing).map((cell) => cell.draft), pricingRows);
+      const saved = await saveSales(cells.filter((cell) => cell.draft.quantity !== null).map((cell) => cell.draft), pricingRows);
       onChange((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
       setStatus(language === 'de' ? 'In Firebase gespeichert' : 'Salvato in Firebase');
     } catch (error) {
@@ -114,7 +114,7 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
   return <section className="dns-card p-5 md:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="dns-section-title">{t.title}</h2><span className="dns-pill">{t.draft}</span></div>
     <div className="mt-3 flex flex-wrap items-center gap-3">
-      <button type="button" disabled={!editable || !pricingLoaded || developmentMode || !cells.some((cell) => cell.valid && !cell.draft.pricing) || cells.some((cell) => (cell.draft.quantity !== null || cell.draft.amountOverride !== null) && !cell.valid)} onClick={persist} className="dns-button disabled:opacity-40" data-variant="primary">
+      <button type="button" disabled={!editable || !pricingLoaded || developmentMode || !cells.some((cell) => cell.valid) || cells.some((cell) => (cell.draft.quantity !== null || cell.draft.amountOverride !== null) && !cell.valid)} onClick={persist} className="dns-button disabled:opacity-40" data-variant="primary">
         {busy ? (language === 'de' ? 'Laden…' : 'Caricamento…') : (language === 'de' ? 'In Firebase speichern' : 'Salva in Firebase')}
       </button>
       <button type="button" disabled={busy || !org || loadedScope !== scope} className="dns-btn-secondary" onClick={() => void reloadSavedSales()}>{language === 'de' ? 'Neu laden' : 'Ricarica dati'}</button>
