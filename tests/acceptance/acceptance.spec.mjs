@@ -190,3 +190,10 @@ test('Existing Area Admin provisioning: area grant plus own membership supports 
   expect(await service(page,'kp.saveKpEntry',[kp,0])).toBe(1);
   await page.getByRole('button',{name:'KP',exact:true}).click();await expect(page.getByLabel('Km rete fisici / unici')).toHaveValue('5');
 });
+test('Document existing shared reference tariff policy separately from protected organization data',async({page})=>{
+  await policy('none');await login(page,'none');
+  await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();
+  const common=await page.evaluate(async()=> (await import('/tests/acceptance/operations.ts')).read('ticketPricingConfigs/test-price'));
+  expect(common.scopeType).toBe('reportingArea');expect(common.unitPrice).toBe(10);
+  console.log('POLICY LIMIT: common network/area tariffs remain readable to active profiles even with Data Entry none; organization overrides are isolated.');
+});

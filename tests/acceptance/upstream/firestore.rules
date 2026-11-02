@@ -543,11 +543,21 @@ service cloud.firestore {
       return getAfter(/databases/$(database)/documents/$(collectionName)/$(document)/revisions/$(revisionId)).data == resource.data;
     }
 
+    // Canonical organizations currently have one area (verified in the dataset).
+    // Resolve it from trusted metadata, never from the client's requested scope.
+    // Ambiguous mappings require explicit organization grants instead.
+    function organizationArea(orgId) {
+      let areas = get(/databases/$(database)/documents/organizations/$(orgId)).data.reportingAreaIds;
+      return areas.size() == 1 ? areas[0] : '';
+    }
+
     function readPricing(data) {
       return isAdmin() || (activeUser() && (data.scopeType != 'organization'
         || (dataEntryMatrixAllows(data.scopeId, false)
           && (hasGrant('organization',data.scopeId,'pricing.read')
             || hasGrant('organization',data.scopeId,'ticketSales.read')
+            || hasGrant('reportingArea',organizationArea(data.scopeId),'pricing.read')
+            || hasGrant('reportingArea',organizationArea(data.scopeId),'ticketSales.read')
             || hasGrant('network','dolomiti-nordicski','pricing.read')
             || hasGrant('network','dolomiti-nordicski','ticketSales.read')))));
     }
@@ -997,8 +1007,8 @@ service cloud.firestore {
       allow read: if hasKpPermission('kp.read',resource.data);
       allow get: if !exists(/databases/$(database)/documents/kpEntries/$(document))
         && document.split('__').size() == 2
-        && (isAdmin() || (dataEntryMatrixAllows(document.split('__')[1], false)
-          && hasGrant('organization',document.split('__')[1],'kp.read')));
+        && hasKpPermission('kp.read', {'entityType':'organization', 'entityId':document.split('__')[1],
+          'reportingAreaId':organizationArea(document.split('__')[1])});
       allow create: if validKpEntry(request.resource.data)
         && hasKpPermission('kp.write',request.resource.data)
         && request.resource.data.id == document
