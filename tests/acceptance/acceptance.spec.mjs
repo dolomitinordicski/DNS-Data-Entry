@@ -51,7 +51,8 @@ async function login(page,name='writer'){
   await page.getByRole('button',{name:'Accedi',exact:true}).click();
   await expect(page.getByRole('button',{name:'Esci',exact:true})).toBeVisible();
 }
-async function relogin(page,name='writer'){await page.getByRole('button',{name:'Esci',exact:true}).click();await login(page,name);}
+async function logout(page){await page.getByRole('button',{name:'Esci',exact:true}).click();await expect(page.locator('input[type=email]')).toBeVisible();}
+async function relogin(page,name='writer'){await logout(page);await login(page,name);}
 async function service(page,method,args=[]){return page.evaluate(async({method,args})=>{
   const modules={pricing:'/src/services/seasonalPersistence.ts',quality:'/src/features/track-quality/trackQualityPersistence.ts',kp:'/src/services/kp.ts'};
   const [module,fn]=method.split('.');return (await import(/* @vite-ignore */ modules[module]))[fn](...args);
@@ -90,19 +91,41 @@ test('KP: real service creates, revises, reloads and preserves archived values',
   await login(page); const value={id:`2026-27__${org}`,seasonId:'2026-27',entityType:'organization',entityId:org,reportingAreaId:area,referenceKm:{uniqueNetworkKm:5,potentialOperationalKm:5},milestones:[{milestoneId:'2026-27__m1',openedKm:3,naturalSnowKm:2,artificialSnowKm:1}],includeInKp:true,exclusionReason:'',notes:'synthetic'};
   expect(await service(page,'kp.saveKpEntry',[value,0])).toBe(1);
   expect(await service(page,'kp.saveKpEntry',[{...value,notes:'corrected'},1])).toBe(2);
+  const archived=await page.evaluate(async path=>(await import('/tests/acceptance/operations.ts')).read(path),`kpEntries/${value.id}/revisions/1`);
+  expect(archived.notes).toBe('synthetic');
+  await expect(service(page,'kp.saveKpEntry',[{...value,notes:'stale'},1])).rejects.toThrow('CONFLICT_RELOAD');
   await relogin(page);await page.getByRole('button',{name:'KP',exact:true}).click();
   await expect(page.getByText('Caricamento KP non riuscito.',{exact:true})).toHaveCount(0);
   const entries=await page.evaluate(async()=>{const a=await import('/src/services/auth.ts');const k=await import('/src/services/kp.ts');return k.loadKpEntries('2026-27',await a.loadAccessContext(a.auth.currentUser.uid));});
   expect(entries).toHaveLength(1);expect(entries[0].notes).toBe('corrected');expect(entries[0].milestones[0].openedKm).toBe(3);
+  await expect(page.getByLabel('Km rete fisici / unici')).toHaveValue('5');
+  await page.getByLabel('Km rete fisici / unici').fill('6');
+  await page.getByRole('button',{name:'Salva dati KP',exact:true}).click();
+  await expect(page.getByText('Dati KP salvati in Firebase.',{exact:true})).toBeVisible();
+  await relogin(page);await page.getByRole('button',{name:'KP',exact:true}).click();
+  await expect(page.getByLabel('Km rete fisici / unici')).toHaveValue('6');
 });
 for(const [name,level]of [['reader','read'],['none','none']])test(`Identity ${level}: UI and direct writes are capped despite W grants`,async({page})=>{
   await policy(level);await login(page,name);
-  if(level==='none'){await expect(page.getByRole('button',{name:'KP',exact:true})).toHaveCount(0);return;}
-  await page.getByRole('button',{name:'Controllo piste',exact:true}).click();
-  await expect(page.getByRole('button',{name:'Aggiungi pista',exact:true})).toHaveCount(0);
+  if(level==='none'){
+    await expect(page.getByRole('button',{name:'KP',exact:true})).toHaveCount(0);
+    await expect(service(page,'quality.loadTrackQuality',['2026-27',area,org])).rejects.toThrow();
+    await expect(service(page,'pricing.loadSales',['2026-27',org,area])).rejects.toThrow();
+  } else {
+    await page.getByRole('button',{name:'Controllo piste',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Aggiungi pista',exact:true})).toHaveCount(0);
+    await service(page,'quality.loadTrackQuality',['2026-27',area,org]);
+    await service(page,'pricing.loadSales',['2026-27',org,area]);
+  }
+  const track={id:`2026-27__${area}__${org}__denied`,seasonId:'2026-27',organizationId:org,reportingAreaId:area,trackName:'Denied synthetic trail',totalKm:5,earlyDecember:'partial',earlyDecemberKm:2,lateDecember:'no',lateDecemberKm:null,closedAt:'',notes:'',revision:0};
+  await expect(service(page,'quality.saveTrackQuality',[track])).rejects.toThrow();
+  await expect(service(page,'pricing.savePricing',[[{...price(),id:'denied-organization-price',scopeType:'organization',scopeId:org,revision:0}]])).rejects.toThrow();
+  const kp={id:`2026-27__${org}`,seasonId:'2026-27',entityType:'organization',entityId:org,reportingAreaId:area,referenceKm:{uniqueNetworkKm:5,potentialOperationalKm:5},milestones:[{milestoneId:'2026-27__m1',openedKm:3,naturalSnowKm:2,artificialSnowKm:1}],includeInKp:true,exclusionReason:'',notes:''};
+  await expect(service(page,'kp.saveKpEntry',[kp,0])).rejects.toThrow();
+  await expect(service(page,'pricing.saveSales',[[{id:'denied-sales',seasonId:'2026-27',organizationId:org,reportingAreaId:area,productCode:'day',salesChannel:'official',salesPeriod:'regular',quantity:2,amountOverride:null,amountOverrideReason:''}],[price()]])).rejects.toThrow();
 });
 test('Unauthorized and inactive users cannot access protected UI',async({page})=>{
-  for(const name of ['outsider','inactive']){await login(page,name);await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();await page.getByRole('button',{name:'Esci',exact:true}).click();}
+  for(const name of ['outsider','inactive']){await login(page,name);await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();await logout(page);}
 });
 test('Two simultaneous organizations: own reads allowed and foreign queries denied',async({page,browser})=>{
   await login(page);const context=await browser.newContext();const second=await context.newPage();await login(second,'second');
@@ -114,4 +137,39 @@ test('History locked even for admin and stale revisions rejected',async({page})=
   await login(page,'admin');const row={...price(),id:'2025-26-test',seasonId:'2025-26'};
   await expect(service(page,'pricing.savePricing',[[row]])).rejects.toThrow();
   await expect(service(page,'kp.saveKpMilestone',[{id:'2025-26__m1',seasonId:'2025-26',date:'2025-12-08',label:'blocked',order:1}])).rejects.toThrow();
+});
+test('Organization prices: W save/reload and foreign overrides denied',async({page})=>{
+  await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),'ticketPricingConfigs/foreign-price'),{...price(),id:'foreign-price',scopeType:'organization',scopeId:other}));
+  await login(page);
+  const own={...price(),id:'own-price',scopeType:'organization',scopeId:org,unitPrice:12,settlementUnitPrice:12,revision:0};
+  const saved=await service(page,'pricing.savePricing',[[own]]);expect(saved[0].revision).toBe(1);
+  await expect(service(page,'pricing.savePricing',[[{...own,id:'forbidden-price',scopeId:other}]])).rejects.toThrow();
+  await expect(page.evaluate(async()=> (await import('/tests/acceptance/operations.ts')).read('ticketPricingConfigs/foreign-price'))).rejects.toThrow();
+  await relogin(page);
+  const prices=await page.evaluate(async()=>{const a=await import('/src/services/auth.ts');const p=await import('/src/services/seasonalPersistence.ts');return p.loadPricing('2026-27',await a.loadAccessContext(a.auth.currentUser.uid));});
+  expect(prices.find(p=>p.id==='own-price').unitPrice).toBe(12);expect(prices.some(p=>p.id==='foreign-price')).toBe(false);
+});
+test('Admin milestone UI and archived KP revision persist',async({page})=>{
+  await login(page,'admin');await page.getByRole('button',{name:'KP',exact:true}).click();
+  await expect(page.getByLabel('Milestone 1',{exact:true})).toHaveValue('2026-12-08');
+  await page.getByLabel('Milestone 1',{exact:true}).fill('2026-12-09');
+  await page.getByRole('button',{name:'Salva milestone',exact:true}).click();
+  await expect(page.getByText('Milestone salvate in Firebase.',{exact:true})).toBeVisible();
+  await relogin(page,'admin');await page.getByRole('button',{name:'KP',exact:true}).click();
+  await expect(page.getByLabel('Milestone 1',{exact:true})).toHaveValue('2026-12-09');
+});
+test('Identity dates: current RFC3339 grants work; expired grants and memberships fail closed',async({page})=>{
+  const grant=`accessGrants/${users.writer.uid}__organization__${org}`;
+  const member=`memberships/${users.writer.uid}__${org}`;
+  const past=new Date(Date.now()-3600000).toISOString(),future=new Date(Date.now()+3600000).toISOString();
+  await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),grant),{validFrom:past,validTo:future},{merge:true}));
+  await login(page);await expect(page.getByRole('button',{name:'KP',exact:true})).toBeVisible();
+  await logout(page);
+  await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),grant),{validTo:past},{merge:true}));
+  await login(page);await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();
+  await expect(service(page,'pricing.loadSales',['2026-27',org,area])).rejects.toThrow();
+  await logout(page);
+  await env.withSecurityRulesDisabled(async c=>{await setDoc(doc(c.firestore(),grant),{validTo:future},{merge:true});await setDoc(doc(c.firestore(),member),{validTo:past},{merge:true});});
+  await login(page);await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();
+  await expect(service(page,'quality.loadTrackQuality',['2026-27',area,org])).rejects.toThrow();
 });

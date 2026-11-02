@@ -115,6 +115,7 @@ export async function loadKpEntries(seasonId: string, access: DNSAccessContext):
       .map((id) => query(
         collection(db, 'kpEntries'),
         where('seasonId', '==', seasonId),
+        where('entityType', '==', 'organization'),
         where('entityId', '==', id),
       ));
 

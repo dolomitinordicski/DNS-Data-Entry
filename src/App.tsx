@@ -36,6 +36,7 @@ import { formatDNSCoreHeaderStatus } from '@dolomitinordicski/dns-shared-data/ui
 import type { DNSAccessContext, DNSPermission } from './types/access';
 import type { DNSCoreMaster } from './types/master';
 import type { PricingDraftRow } from './types/pricing';
+import { organizationAllows } from './services/organizationAccess';
 import {
   dataContractsForModule,
   DNS_DATA_CONTRACTS_VERSION,
@@ -134,7 +135,9 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let generation = 0;
     return subscribeToAuth((user) => {
+      const currentGeneration = ++generation;
       setAuthReady(false);
       setSalesRows([]);
       setPricingRows([]);
@@ -149,16 +152,18 @@ function App() {
 
       loadAccessContext(user.uid)
         .then((context) => {
+          if (currentGeneration !== generation) return;
           setAccess(context);
           if (context.profile?.preferredLanguage === 'de' || context.profile?.preferredLanguage === 'it') {
             setDNSDataEntryLanguage(context.profile.preferredLanguage);
           }
         })
         .catch((error) => {
+          if (currentGeneration !== generation) return;
           console.error('DNS authorization context failed', error);
           setAccess(null);
         })
-        .finally(() => setAuthReady(true));
+        .finally(() => { if (currentGeneration === generation) setAuthReady(true); });
     });
   }, []);
 
@@ -209,6 +214,7 @@ function App() {
 
   function canManageTariff(row: PricingDraftRow) {
     if (historicalSeason) return false;
+    if (row.scopeType === 'organization' && (!effectiveAccess || !organizationAllows(effectiveAccess, row.scopeId, true))) return false;
     return effectiveAccess?.isAdmin === true || (effectiveAccess?.grants ?? []).some((grant) =>
       grant.active && grant.permissions.includes('pricing.manage') &&
       ((grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski') ||

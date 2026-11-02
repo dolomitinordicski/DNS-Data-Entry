@@ -1,0 +1,14 @@
+import {execFileSync} from 'node:child_process';
+import {readFileSync,existsSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const dir='.acceptance-upstream';
+const track='304815abc6342bb208b6cfcf87b665d1c001b86c';
+const flyer='48cfbca2b902a15d316fc54e2638f5bd74f72909';
+if(existsSync(dir))throw Error('Use a clean checkout for upstream verification');
+const git=(...args)=>execFileSync('git',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
+git('clone','--no-checkout','https://github.com/dolomitinordicski/dns-shared-data.git',dir);
+git('-C',dir,'checkout','--detach',track);
+git('-C',dir,'-c','user.name=Emulator verification','-c','user.email=emulator@dns-test.invalid','merge','--no-commit','--no-ff',flyer);
+const normalize=s=>s.replace(/\r\n/g,'\n').trimEnd();
+assert.equal(normalize(readFileSync(`${dir}/firestore.rules`,'utf8')),normalize(readFileSync('tests/acceptance/upstream/firestore.rules','utf8')));
+console.log(`Exact combined rules verified: shared-data #231 ${track} + #221 ${flyer}`);
