@@ -9,7 +9,7 @@ const permissions=['pricing.read','pricing.manage','ticketSales.read','ticketSal
 test.beforeAll(async()=>{
   if(process.env.GCLOUD_PROJECT!=='demo-dns-identity'||process.env.FIRESTORE_EMULATOR_HOST!=='127.0.0.1:8188'||process.env.FIREBASE_AUTH_EMULATOR_HOST!=='127.0.0.1:9098') throw Error('Dedicated loopback demo required');
   env=await initializeTestEnvironment({projectId:'demo-dns-identity',firestore:{host:'127.0.0.1',port:8188,rules:fs.readFileSync('tests/acceptance/upstream/firestore.rules','utf8')}});
-  for(const name of ['admin','writer','reader','none','outsider','inactive','second']){
+  for(const name of ['admin','writer','reader','none','outsider','inactive','second','area']){
     const email=`${name}-${Date.now()}@dns-test.invalid`;
     const response=await fetch('http://127.0.0.1:9098/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo-only',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,returnSecureToken:true})});
     const account=await response.json(); if(!response.ok) throw Error(JSON.stringify(account));
@@ -30,7 +30,8 @@ test.beforeEach(async({page})=>{
       if(['admin','outsider'].includes(name))continue;
       const id=name==='second'?other:org;
       await put(`memberships/${uid}__${id}`,{userId:uid,organizationId:id,active:true});
-      await put(`accessGrants/${uid}__organization__${id}`,{userId:uid,scopeType:'organization',scopeId:id,active:true,permissions});
+      if(name==='area') await put(`accessGrants/${uid}__reportingArea__${area}`,{userId:uid,scopeType:'reportingArea',scopeId:area,active:true,permissions:permissions.filter(p=>p!=='pricing.manage')});
+      else await put(`accessGrants/${uid}__organization__${id}`,{userId:uid,scopeType:'organization',scopeId:id,active:true,permissions});
     }
     await put(`organizationToolAccess/${org}`,{organizationId:org,tools:{'data-entry':'write'}});
     await put(`organizationToolAccess/${other}`,{organizationId:other,tools:{'data-entry':'write'}});
@@ -172,4 +173,20 @@ test('Identity dates: current RFC3339 grants work; expired grants and membership
   await env.withSecurityRulesDisabled(async c=>{await setDoc(doc(c.firestore(),grant),{validTo:future},{merge:true});await setDoc(doc(c.firestore(),member),{validTo:past},{merge:true});});
   await login(page);await expect(page.getByRole('heading',{name:'Accesso non abilitato',exact:true})).toBeVisible();
   await expect(service(page,'quality.loadTrackQuality',['2026-27',area,org])).rejects.toThrow();
+});
+test('Existing Area Admin provisioning: area grant plus own membership supports KP and private own prices',async({page})=>{
+  await env.withSecurityRulesDisabled(async c=>{
+    await setDoc(doc(c.firestore(),'ticketPricingConfigs/area-user-override'),{...price(),id:'area-user-override',scopeType:'organization',scopeId:org});
+    await setDoc(doc(c.firestore(),'ticketPricingConfigs/foreign-area-override'),{...price(),id:'foreign-area-override',scopeType:'organization',scopeId:other});
+  });
+  await login(page,'area');
+  // The other organization has W policy and belongs to the SAME area, but this
+  // account has no membership there. A territorial grant must not bypass that.
+  await expect(page.evaluate(async()=> (await import('/tests/acceptance/operations.ts')).read('ticketPricingConfigs/foreign-area-override'))).rejects.toThrow();
+  await expect(service(page,'quality.loadTrackQuality',['2026-27',area,other])).rejects.toThrow();
+  const prices=await page.evaluate(async()=>{const a=await import('/src/services/auth.ts');const p=await import('/src/services/seasonalPersistence.ts');return p.loadPricing('2026-27',await a.loadAccessContext(a.auth.currentUser.uid));});
+  expect(prices.some(p=>p.id==='area-user-override')).toBe(true);
+  const kp={id:`2026-27__${org}`,seasonId:'2026-27',entityType:'organization',entityId:org,reportingAreaId:area,referenceKm:{uniqueNetworkKm:5,potentialOperationalKm:5},milestones:[{milestoneId:'2026-27__m1',openedKm:3,naturalSnowKm:2,artificialSnowKm:1}],includeInKp:true,exclusionReason:'',notes:''};
+  expect(await service(page,'kp.saveKpEntry',[kp,0])).toBe(1);
+  await page.getByRole('button',{name:'KP',exact:true}).click();await expect(page.getByLabel('Km rete fisici / unici')).toHaveValue('5');
 });
