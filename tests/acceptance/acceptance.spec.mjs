@@ -191,6 +191,14 @@ test('Existing Area Admin provisioning: area grant plus own membership supports 
   const kp={id:`2026-27__${org}`,seasonId:'2026-27',entityType:'organization',entityId:org,reportingAreaId:area,referenceKm:{uniqueNetworkKm:5,potentialOperationalKm:5},milestones:[{milestoneId:'2026-27__m1',openedKm:3,naturalSnowKm:2,artificialSnowKm:1}],includeInKp:true,exclusionReason:'',notes:''};
   expect(await service(page,'kp.saveKpEntry',[kp,0])).toBe(1);
   await page.getByRole('button',{name:'KP',exact:true}).click();await expect(page.getByLabel('Km rete fisici / unici')).toHaveValue('5');
+  const trail={id:`2026-27__${area}__${org}__area-account`,seasonId:'2026-27',organizationId:org,reportingAreaId:area,trackName:'Area account synthetic trail',totalKm:5,earlyDecember:'partial',earlyDecemberKm:2,lateDecember:'unreported',lateDecemberKm:null,closedAt:'',notes:'',revision:0};
+  expect(await service(page,'quality.saveTrackQuality',[trail])).toBe(1);
+  const sale={id:'area-account-sale',seasonId:'2026-27',organizationId:org,reportingAreaId:area,productCode:'day',salesChannel:'official',salesPeriod:'regular',quantity:0,amountOverride:null,amountOverrideReason:''};
+  const sold=await service(page,'pricing.saveSales',[[sale],prices]);expect(sold[0].revision).toBe(1);
+  const corrected=await service(page,'pricing.saveSales',[[{...sold[0],quantity:2}],prices]);expect(corrected[0].revision).toBe(2);expect(corrected[0].calculatedAmount).toBe(20);
+  await relogin(page,'area');
+  const reloaded=await service(page,'pricing.loadSales',['2026-27',org,area]);expect(reloaded[0].quantity).toBe(2);
+  expect(await service(page,'quality.loadTrackQuality',['2026-27',area,org])).toHaveLength(1);
 });
 test('Document existing shared reference tariff policy separately from protected organization data',async({page})=>{
   await policy('none');await login(page,'none');
