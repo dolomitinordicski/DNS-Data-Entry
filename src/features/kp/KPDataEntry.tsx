@@ -311,7 +311,13 @@ export function KPDataEntry({ seasonId, language, master, access, canWrite, canV
       setStatus(it ? 'Dati KP salvati in Firebase.' : 'KP-Daten in Firebase gespeichert.');
     } catch (error) {
       console.error('KP save failed', error);
-      setStatus(it ? 'Salvataggio KP non riuscito.' : 'KP konnte nicht gespeichert werden.');
+      const conflict = error instanceof Error && error.message.includes('CONFLICT_RELOAD');
+      const locked = error instanceof Error && error.message.includes('RECORD_LOCKED');
+      setStatus(conflict
+        ? (it ? 'I dati KP sono stati aggiornati. Ricarica i dati prima di salvare.' : 'Die KP-Daten wurden geändert. Bitte vor dem Speichern neu laden.')
+        : locked
+          ? (it ? 'I dati KP sono già confermati e non possono essere modificati.' : 'Die KP-Daten sind bereits bestätigt und können nicht geändert werden.')
+          : (it ? 'Salvataggio KP non riuscito.' : 'KP konnte nicht gespeichert werden.'));
     } finally {
       setBusy(false);
     }
