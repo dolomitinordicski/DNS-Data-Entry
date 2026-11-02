@@ -27,7 +27,7 @@ service cloud.firestore {
     }
 
     // Permission snapshot only. Callers must separately require an active user.
-    function grantAllows(scopeType, scopeId, permission) {
+    function kpGrantAllows(scopeType, scopeId, permission) {
       let grantId = request.auth.uid + "__" + scopeType + "__" + scopeId;
       let grantPath = /databases/$(database)/documents/accessGrants/$(grantId);
       let grant = get(grantPath);
@@ -39,7 +39,14 @@ service cloud.firestore {
     }
 
     function hasGrant(scopeType, scopeId, permission) {
-      return activeUser() && grantAllows(scopeType, scopeId, permission);
+      let grantId = request.auth.uid + "__" + scopeType + "__" + scopeId;
+      let grantPath = /databases/$(database)/documents/accessGrants/$(grantId);
+      return activeUser()
+        && scopeId != ''
+        && exists(grantPath)
+        && get(grantPath).data.active == true
+        && grantWithinDates(get(grantPath).data)
+        && permission in get(grantPath).data.permissions;
     }
 
     function hasAnyGrantForScope(scopeType, scopeId) {
@@ -141,13 +148,24 @@ service cloud.firestore {
     // Missing policy keeps existing grants working during staged rollout.
     function dataEntryMatrixAllows(orgId, write) {
       let policyPath = /databases/$(database)/documents/organizationToolAccess/$(orgId);
+      let memberPath = /databases/$(database)/documents/memberships/$(request.auth.uid + '__' + orgId);
+      let policy = exists(policyPath) ? get(policyPath) : null;
+      let member = policy == null ? null : get(memberPath);
+      return policy == null
+        || (member != null && member.data.active == true && grantWithinDates(member.data)
+          && (policy.data.tools.get('data-entry', 'none') == 'write'
+            || (!write && policy.data.tools.get('data-entry', 'none') == 'read')));
+    }
+
+    function kpMatrixAllows(orgId, write) {
+      let policyPath = /databases/$(database)/documents/organizationToolAccess/$(orgId);
       // The explicit absent-policy fallback preserves the existing rollout
       // contract. Emulator probe verifies missing policy allows legacy grants,
       // while an existing policy with a missing membership remains denied.
-      return configuredDataEntryMatrixAllows(orgId, write) || !exists(policyPath);
+      return configuredKpMatrixAllows(orgId, write) || !exists(policyPath);
     }
 
-    function configuredDataEntryMatrixAllows(orgId, write) {
+    function configuredKpMatrixAllows(orgId, write) {
       let policyPath = /databases/$(database)/documents/organizationToolAccess/$(orgId);
       let memberPath = /databases/$(database)/documents/memberships/$(request.auth.uid + '__' + orgId);
       let policy = get(policyPath).data;
@@ -822,10 +840,10 @@ service cloud.firestore {
       let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return signedIn() && profile.active == true && ('dns-admin' in profile.globalRoles
         || ((data.entityType != 'organization'
-              || dataEntryMatrixAllows(data.entityId, permission != 'kp.read'))
-          && (grantAllows('reportingArea',data.reportingAreaId,permission)
-            || (data.entityType == 'organization' && grantAllows('organization',data.entityId,permission))
-            || grantAllows('network','dolomiti-nordicski',permission))));
+              || kpMatrixAllows(data.entityId, permission != 'kp.read'))
+          && (kpGrantAllows('reportingArea',data.reportingAreaId,permission)
+            || (data.entityType == 'organization' && kpGrantAllows('organization',data.entityId,permission))
+            || kpGrantAllows('network','dolomiti-nordicski',permission))));
     }
 
     function validKpMilestone(data) {
