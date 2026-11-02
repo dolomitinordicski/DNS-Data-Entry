@@ -35,3 +35,12 @@
 - modules.ts contains season/pricing/orders/sales/kp/verification but **no separate track-quality module**; locate existing implementation elsewhere before adding one.
 - package.json pins Foundation 1.2.1 while README references 1.2.0. Defer updating to avoid conflict with Foundation work.
 - Workstream release date is 2026-11-06; do not scope-creep into Sammelbestellungen/Faktura.
+
+## Cross-workstream audit — 2 November 2026
+- Data Entry #75: TypeScript/Vite Build green at `fb467404`; not merged. DEV persona bypass is absent from this feature branch but remains on `main`.
+- Shared Data #231: six existing + dedicated track-quality emulator workflows green at `aa65daa`; no merge. Its rules affect shared dns-core, so do not deploy independently of other identity/security changes.
+- Flyer Studio #70: concurrent Identity/area-scoped work continues; latest observed commit `57e2d01` had CI pending. Do not modify or merge this branch from Data Entry.
+- Shared Data #221: flyer.read/flyer.write enforcement is still open and requires cross-app approval and isolation testing. Do not merge conflicting firestore.rules without reviewing both #221 and #231.
+- Shared Data #210: package icon catalog has green checks but is draft; leave it for its owner. Data Entry #70 (collective orders) outside 6 November release scope.
+- **Merge gate remains closed** until integration demonstrates W/R/none + saved/reloaded records through the real front-end, simultaneous sessions, cross-organization denial, and no bypass on deployed Data Entry.
+- Check parallel GitHub PRs and recent workstream decisions before every subsequent DNS edit or merge; don't rely on an older green commit if the PR head changed.
