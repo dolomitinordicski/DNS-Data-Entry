@@ -58,6 +58,25 @@ async function service(page,method,args=[]){return page.evaluate(async({method,a
   const modules={pricing:'/src/services/seasonalPersistence.ts',quality:'/src/features/track-quality/trackQualityPersistence.ts',kp:'/src/services/kp.ts'};
   const [module,fn]=method.split('.');return (await import(/* @vite-ignore */ modules[module]))[fn](...args);
 },{method,args});}
+test('Workspace SSO: persisted dns-core session opens Data Entry and host logout propagates',async({page,context})=>{
+  await page.goto('/');
+  await page.evaluate(async({email,password})=>{
+    const {signIn}=await import('/src/services/auth.ts');
+    await signIn(email,password);
+  },{email:users.writer.email,password});
+  const embedded=await context.newPage();
+  await embedded.goto('/');
+  await expect(embedded.getByRole('button',{name:'Esci',exact:true})).toBeVisible();
+  await expect(embedded.locator('input[type=email]')).toHaveCount(0);
+  await embedded.reload();
+  await expect(embedded.getByRole('button',{name:'Esci',exact:true})).toBeVisible();
+  await page.evaluate(async()=>{
+    const {signOut}=await import('/src/services/auth.ts');
+    await signOut();
+  });
+  await expect(embedded.locator('input[type=email]')).toBeVisible();
+  await embedded.close();
+});
 test('Prices: UI edit, Firebase save, logout/login and reload',async({page})=>{
   await login(page,'admin');await page.getByRole('button',{name:'Tariffe',exact:true}).click();
   const row=page.locator('tr').filter({hasText:'Settimanale DNS'}).filter({hasText:'Punto vendita'}).filter({hasText:'Regolare'}).first();
