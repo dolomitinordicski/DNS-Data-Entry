@@ -3,9 +3,9 @@ import { collection, getDocs, getFirestore } from 'firebase/firestore';
 import type { CanonicalRecord, DNSCoreMaster, MasterCollectionName } from '../types/master';
 
 // Firebase Auth persistence is keyed by API key and app name. Workspace and
-// embedded DNS tools use this canonical name so their same-origin documents
+// embedded DNS tools use this canonical staff-only name so their same-origin documents
 // observe one dns-core session without passing credentials or tokens.
-export const DNS_CORE_AUTH_APP_NAME = 'dns-digital-pass';
+export const DNS_CORE_AUTH_APP_NAME = 'dns-core-staff';
 
 const firebaseConfig = {
   apiKey: 'AIzaSyAgxv6Z45-AfrusbFnCSyvYChRUBu6-vXc',
