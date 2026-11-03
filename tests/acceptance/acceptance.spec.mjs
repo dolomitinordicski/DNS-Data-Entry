@@ -61,9 +61,8 @@ async function service(page,method,args=[]){return page.evaluate(async({method,a
 test('Workspace SSO: persisted dns-core session opens Data Entry and host logout propagates',async({page,context})=>{
   await page.goto('/');
   await page.evaluate(async({email,password})=>{
-    const {signInWithEmailAndPassword}=await import('firebase/auth');
-    const {auth}=await import('/src/services/auth.ts');
-    await signInWithEmailAndPassword(auth,email,password);
+    const {signIn}=await import('/src/services/auth.ts');
+    await signIn(email,password);
   },{email:users.writer.email,password});
   const embedded=await context.newPage();
   await embedded.goto('/');
@@ -72,9 +71,8 @@ test('Workspace SSO: persisted dns-core session opens Data Entry and host logout
   await embedded.reload();
   await expect(embedded.getByRole('button',{name:'Esci',exact:true})).toBeVisible();
   await page.evaluate(async()=>{
-    const {signOut}=await import('firebase/auth');
-    const {auth}=await import('/src/services/auth.ts');
-    await signOut(auth);
+    const {signOut}=await import('/src/services/auth.ts');
+    await signOut();
   });
   await expect(embedded.locator('input[type=email]')).toBeVisible();
   await embedded.close();
