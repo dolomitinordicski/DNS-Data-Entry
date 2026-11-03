@@ -10,6 +10,7 @@ const CONTRACT_IDS_BY_MODULE: Record<ModuleId, readonly string[]> = {
   orders: ['order-catalog', 'ticket-orders'],
   sales: ['ticket-sales'],
   kp: ['kp'],
+  'track-quality': ['kp'],
   verification: ['submissions-revisions'],
 };
 

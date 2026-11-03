@@ -74,7 +74,7 @@ const copy = {
     backLanguage: 'Rückseite',
     delivery: 'Lieferadresse',
     needsConfirmation: 'Adresse bestätigen',
-    localDraft: 'DEV MODE · lokaler Browser-Entwurf',
+    localDraft: 'lokaler Browser-Entwurf',
     live: 'DNS_Core · Firestore live',
     readOnly: 'Nur Lesen',
     total: 'Gesamt',
@@ -126,7 +126,7 @@ const copy = {
     backLanguage: 'Retro',
     delivery: 'Indirizzo consegna',
     needsConfirmation: 'Indirizzo da confermare',
-    localDraft: 'DEV MODE · bozza locale nel browser',
+    localDraft: 'bozza locale nel browser',
     live: 'DNS_Core · Firestore live',
     readOnly: 'Sola lettura',
     total: 'Totale',
@@ -309,12 +309,14 @@ export function TicketOrdersTable({
   language,
   seasonId,
   canWrite: allowedToWrite,
-  developmentMode,
+  developmentMode: requestedDevelopmentMode,
   access,
   organizations,
   isAdmin,
-  devAreaTest = false,
+  devAreaTest: requestedDevAreaTest = false,
 }: Props) {
+  const developmentMode = import.meta.env.DEV && requestedDevelopmentMode;
+  const devAreaTest = import.meta.env.DEV && requestedDevAreaTest;
   const t = copy[language];
   const [deadlineState, setDeadlineState] = useState<'loading' | 'open' | 'closed'>('loading');
   const [deadlineAt, setDeadlineAt] = useState<number | null>(null);

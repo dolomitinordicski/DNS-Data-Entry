@@ -1,5 +1,6 @@
 import { HistoricalSeason } from './features/season/HistoricalSeason';
 import { KPDataEntry } from './features/kp/KPDataEntry';
+import { TrackQualityWorkspace } from './features/track-quality/TrackQualityWorkspace';
 import { loadPricing, savePricing, persistenceMessage } from './services/seasonalPersistence';
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
@@ -9,11 +10,6 @@ import { useEffect, useMemo, useState } from 'react';
 import type { User } from 'firebase/auth';
 import { DNS_SHARED_BRAND } from './config/brand';
 import { MODULE_READ_PERMISSION } from './config/access';
-import {
-  DEV_AREA_TEST_LABEL,
-  devAccessFor,
-  type DevPersona,
-} from './config/devAccess';
 import { modules, type ModuleId } from './config/modules';
 import { createInitialPricingDraft } from './config/pricing';
 import { LoginScreen } from './features/auth/LoginScreen';
@@ -40,6 +36,7 @@ import { formatDNSCoreHeaderStatus } from '@dolomitinordicski/dns-shared-data/ui
 import type { DNSAccessContext, DNSPermission } from './types/access';
 import type { DNSCoreMaster } from './types/master';
 import type { PricingDraftRow } from './types/pricing';
+import { organizationAllows } from './services/organizationAccess';
 import {
   dataContractsForModule,
   DNS_DATA_CONTRACTS_VERSION,
@@ -70,11 +67,6 @@ const copy = {
     admin: 'DNS Admin',
     scoped: 'Freigeschalteter Benutzer',
     readOnly: 'Nur Lesen',
-    devMode: 'DEV MODE',
-    devAdmin: 'DNS ADMIN',
-    devArea: 'AREA TEST',
-    devAreaScope: '3 Zinnen · simulierte Bereichssicht',
-    exitDev: 'Dev-Modus verlassen',
   },
   it: {
     operations: 'Operazioni',
@@ -95,11 +87,6 @@ const copy = {
     admin: 'DNS Admin',
     scoped: 'Utente abilitato',
     readOnly: 'Sola lettura',
-    devMode: 'DEV MODE',
-    devAdmin: 'DNS ADMIN',
-    devArea: 'AREA TEST',
-    devAreaScope: '3 Zinnen · vista area simulata',
-    exitDev: 'Esci dalla modalità sviluppo',
   },
 } as const;
 
@@ -120,12 +107,6 @@ function App() {
   const [authUser, setAuthUser] = useState<User | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [access, setAccess] = useState<DNSAccessContext | null>(null);
-  const [developmentMode, setDevelopmentMode] = useState(
-    () => sessionStorage.getItem('dns-development-mode') === '1',
-  );
-  const [devPersona, setDevPersona] = useState<DevPersona>(
-    () => sessionStorage.getItem('dns-dev-persona') === 'area-test' ? 'area-test' : 'admin',
-  );
   const t = copy[language];
   const coreHeaderStatus = formatDNSCoreHeaderStatus(
     connection === 'ready'
@@ -140,11 +121,11 @@ function App() {
     language,
   );
 
-  const effectiveAccess = developmentMode ? devAccessFor(devPersona) : access;
+  const effectiveAccess = access;
   const hasToolAccess =
-    developmentMode ||
     (effectiveAccess?.profile?.active === true &&
-      (effectiveAccess.isAdmin || effectiveAccess.permissions.size > 0));
+      (effectiveAccess.isAdmin || Object.values(MODULE_READ_PERMISSION).some(permission =>
+        effectiveAccess.permissions.has(permission))));
 
   useEffect(() => {
     const foundation = initDNSDataEntryFoundation();
@@ -155,9 +136,13 @@ function App() {
   }, []);
 
   useEffect(() => {
+    let generation = 0;
     return subscribeToAuth((user) => {
+      const currentGeneration = ++generation;
       setAuthReady(false);
       setSalesRows([]);
+      setPricingRows([]);
+      setPricingLoaded(false);
       setAuthUser(user);
       setAccess(null);
 
@@ -168,16 +153,18 @@ function App() {
 
       loadAccessContext(user.uid)
         .then((context) => {
+          if (currentGeneration !== generation) return;
           setAccess(context);
           if (context.profile?.preferredLanguage === 'de' || context.profile?.preferredLanguage === 'it') {
             setDNSDataEntryLanguage(context.profile.preferredLanguage);
           }
         })
         .catch((error) => {
+          if (currentGeneration !== generation) return;
           console.error('DNS authorization context failed', error);
           setAccess(null);
         })
-        .finally(() => setAuthReady(true));
+        .finally(() => { if (currentGeneration === generation) setAuthReady(true); });
     });
   }, []);
 
@@ -213,21 +200,23 @@ function App() {
   useEffect(() => {
     let active = true;
     setPricingLoaded(false);
-    if (historicalSeason || !activeSeason || !authReady || !effectiveAccess?.profile?.active || developmentMode) { setPricingBusy(false); return; }
+    if (historicalSeason || !activeSeason || !authReady || !effectiveAccess?.profile?.active) { setPricingBusy(false); return; }
     setPricingBusy(true);
     setPricingStatus('');
-    loadPricing(String(activeSeason.id)).then((saved) => {
+    loadPricing(String(activeSeason.id), effectiveAccess).then((saved) => {
       if (!active) return;
-      setPricingRows((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
+      const defaults = createInitialPricingDraft(String(activeSeason.id), master?.reportingAreas.map(area => area.id) ?? []);
+      setPricingRows([...defaults.filter(row => !saved.some(item => item.id === row.id)), ...saved]);
       setPricingLoaded(true);
     }).catch((error) => { if (active) setPricingStatus(persistenceMessage(error, language)); })
       .finally(() => { if (active) setPricingBusy(false); });
     return () => { active = false; };
-  }, [activeSeason?.id, authReady, effectiveAccess?.profile?.id, developmentMode]);
+  }, [activeSeason?.id, authReady, effectiveAccess?.profile?.id]);
 
   function canManageTariff(row: PricingDraftRow) {
     if (historicalSeason) return false;
-    return (developmentMode && devPersona === 'admin') || effectiveAccess?.isAdmin === true || (effectiveAccess?.grants ?? []).some((grant) =>
+    if (row.scopeType === 'organization' && (!effectiveAccess || !organizationAllows(effectiveAccess, row.scopeId, true))) return false;
+    return effectiveAccess?.isAdmin === true || (effectiveAccess?.grants ?? []).some((grant) =>
       grant.active && grant.permissions.includes('pricing.manage') &&
       ((grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski') ||
         (grant.scopeType === row.scopeType && grant.scopeId === row.scopeId)),
@@ -268,7 +257,7 @@ function App() {
     return <PublicOrderSharePage shareId={publicShareId} language={language} onLanguageChange={setDNSDataEntryLanguage} />;
   }
 
-  if (!authReady && !developmentMode) {
+  if (!authReady) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-dns-bg">
         <div className="dns-kicker">{t.authLoading}</div>
@@ -276,17 +265,12 @@ function App() {
     );
   }
 
-  if (!authUser && !developmentMode) {
+  if (!authUser) {
     return (
       <LoginScreen
         language={language}
         onLanguageChange={setDNSDataEntryLanguage}
-        onDevelopmentMode={() => {
-          sessionStorage.setItem('dns-development-mode', '1');
-          sessionStorage.setItem('dns-dev-persona', 'admin');
-          setDevPersona('admin');
-          setDevelopmentMode(true);
-        }}
+
       />
     );
   }
@@ -333,7 +317,7 @@ function App() {
                 data-dns-hover
                 className="dns-tool-header-session-action hover:text-white"
               >
-                {developmentMode ? t.exitDev : t.signOut}
+                {t.signOut}
               </button>
             </div>
           </div>
@@ -360,13 +344,6 @@ function App() {
 
   function leaveSession() {
     setSalesRows([]);
-    if (developmentMode) {
-      sessionStorage.removeItem('dns-development-mode');
-      sessionStorage.removeItem('dns-dev-persona');
-      setDevPersona('admin');
-      setDevelopmentMode(false);
-      return;
-    }
     void dnsSignOut();
   }
 
@@ -397,14 +374,10 @@ function App() {
           <div className="dns-tool-header-actions">
             <div className="dns-tool-header-account">
               <div className="font-alt text-[10px] text-white/75">
-                {developmentMode
-                  ? (devPersona === 'area-test' ? DEV_AREA_TEST_LABEL : t.devAdmin)
-                  : (authUser?.email ?? authUser?.uid)}
+                {(authUser?.email ?? authUser?.uid)}
               </div>
               <div className="mt-0.5 text-[9px] font-bold uppercase tracking-[.06em] text-dns-light">
-                {developmentMode
-                  ? (devPersona === 'area-test' ? t.devAreaScope : t.devMode)
-                  : effectiveAccess?.isAdmin ? t.admin : t.scoped}
+                {effectiveAccess?.isAdmin ? t.admin : t.scoped}
               </div>
             </div>
 
@@ -435,7 +408,7 @@ function App() {
               data-dns-hover
               className="dns-tool-header-session-action hover:text-white"
             >
-              {developmentMode ? t.exitDev : t.signOut}
+              {t.signOut}
             </button>
 
             <div
@@ -449,38 +422,6 @@ function App() {
           </div>
         </div>
       </header>
-
-      {developmentMode && (
-        <div className="bg-amber-100 px-5 py-2 text-amber-900">
-          <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-center gap-3 font-alt text-[10px] font-bold uppercase tracking-[.08em]">
-            <span>{t.devMode} · Frontend only · no production writes</span>
-            <div className="inline-flex overflow-hidden rounded-md border border-amber-900/20 bg-white/70">
-              {([
-                ['admin', t.devAdmin],
-                ['area-test', t.devArea],
-              ] as const).map(([persona, label]) => (
-                <button
-                  key={persona}
-                  type="button"
-                  onClick={() => {
-                    sessionStorage.setItem('dns-dev-persona', persona);
-                    setDevPersona(persona);
-                    if (persona === 'area-test') setActiveModule('orders');
-                  }}
-                  className={[
-                    'px-3 py-1.5 transition',
-                    devPersona === persona ? 'bg-amber-900 text-white' : 'text-amber-900',
-                  ].join(' ')}
-                  aria-pressed={devPersona === persona}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {devPersona === 'area-test' && <span>{t.devAreaScope}</span>}
-          </div>
-        </div>
-      )}
 
       <nav data-dns-tool-nav id="dns-data-entry-nav" className="dns-tab-nav" aria-label={t.operations}>
         <div className="dns-tab-nav-inner">
@@ -553,7 +494,7 @@ function App() {
               onChange={(rows) => { setPricingStatus(''); setPricingRows(rows); }}
               readOnly={!canManagePricing || pricingBusy}
               onSave={persistPricing} saving={pricingBusy}
-              canSave={canManagePricing && pricingLoaded && !developmentMode}
+              canSave={canManagePricing && pricingLoaded}
               saveStatus={pricingStatus} canEditRow={canManageTariff}
             />
             </div>
@@ -576,11 +517,11 @@ function App() {
                   language={language}
                   seasonId={String(activeSeason.id)}
                   canWrite={effectivePermissions.has('ticketOrders.write')}
-                  developmentMode={developmentMode}
+                  developmentMode={false}
                   access={effectiveAccess}
                   organizations={master.organizations}
                   isAdmin={effectiveAccess?.isAdmin === true}
-                  devAreaTest={developmentMode && devPersona === 'area-test'}
+                  devAreaTest={false}
                 />
               ) : (
                 <CollectiveOrdersWorkspace
@@ -594,6 +535,13 @@ function App() {
             </div>
           )}
 
+          {!historicalSeason && activeModule === 'track-quality' && master && activeSeason && effectiveAccess && (
+            <div key="track-quality" data-dns-reveal>
+              <TrackQualityWorkspace seasonId={String(activeSeason.id)} language={language}
+                master={master} access={effectiveAccess} />
+            </div>
+          )}
+
           {!historicalSeason && activeModule === 'kp' && master && activeSeason && effectiveAccess && (
             <div key="kp" data-dns-reveal>
               <KPDataEntry
@@ -603,21 +551,21 @@ function App() {
                 access={effectiveAccess}
                 canWrite={effectivePermissions.has('kp.write')}
                 canVerify={effectivePermissions.has('kp.verify')}
-                developmentMode={developmentMode}
+                developmentMode={false}
               />
             </div>
           )}
 
           {!historicalSeason && activeModule === 'sales' && master && activeSeason && (
             <div key="sales" data-dns-reveal>
-            <SalesEntry master={master} access={effectiveAccess} developmentMode={developmentMode}
+            <SalesEntry master={master} access={effectiveAccess} developmentMode={false}
               canWrite={effectivePermissions.has('ticketSales.write')} language={language}
               seasonId={String(activeSeason.id)} pricingRows={pricingRows}
               rows={salesRows} onChange={setSalesRows} pricingLoaded={pricingLoaded} />
             </div>
           )}
 
-          {!historicalSeason && !['season', 'pricing', 'orders', 'sales', 'kp'].includes(activeModule) && (
+          {!historicalSeason && !['season', 'pricing', 'orders', 'sales', 'kp', 'track-quality'].includes(activeModule) && (
             <div key={activeModule} data-dns-reveal className="space-y-5">
               <section className="dns-card p-6">
                 <div className="dns-section-title">{active.label[language]}</div>

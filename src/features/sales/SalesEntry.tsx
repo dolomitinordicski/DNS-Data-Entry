@@ -6,6 +6,7 @@ import type { DNSCoreMaster } from '../../types/master';
 import type { DNSAccessContext } from '../../types/access';
 import type { PricingDraftRow, ProductCode, SalesChannel, SalesPeriod } from '../../types/pricing';
 import type { SalesDraftRow } from '../../types/sales';
+import { organizationAllows } from '../../services/organizationAccess';
 
 const copy = {
   de: { title: 'Verkäufe erfassen', draft: 'Entwurf · explizit in Firebase speichern', intro: 'Tatsächlich verkaufte Tickets je Organisation, Kanal und Periode. Bestellungen werden nicht als Verkäufe übernommen.', organization: 'Organisation', area: 'Gebiet', quantity: 'Verkaufte Tickets', price: 'Tarif', calculated: 'Berechnet', actual: 'Gemeldeter Umsatz', reason: 'Begründung der Abweichung', total: 'Umsatz · vollständige Zeilen', missing: 'Tarif fehlt', pending: 'Unvollständige Angaben', complete: 'Ausgefüllte Zeilen vollständig', empty: 'Keine Organisation für diesen Bereich freigeschaltet.', source: 'Gespeicherte Zeilen behalten ihren Preis-Snapshot; Änderungen verwenden den aktuellen Tarif', help: 'Gemeldeten Umsatz nur bei Abweichungen eintragen; eine Begründung ist dann erforderlich. Leere Menge bedeutet nicht gemeldet, 0 bedeutet keine Verkäufe.', warning: 'Nicht gespeicherte Änderungen gehen beim Neuladen verloren. Tarife zuerst in Firebase speichern.' },
@@ -27,11 +28,13 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
   const grants = access?.grants.filter((grant) => grant.active && grant.permissions.includes('ticketSales.read')) ?? [];
   const organizations = master.organizations.filter((org) => {
     if (!Array.isArray(org.reportingAreaIds) || !org.reportingAreaIds.length) return false;
-    return developmentMode || access?.isAdmin || grants.some((grant) =>
+    return access?.isAdmin || (access && organizationAllows(access, org.id) &&
+      access.memberships.some((membership) => membership.active && membership.organizationId === org.id) &&
+      grants.some((grant) =>
       grant.scopeType === 'network' ||
       (grant.scopeType === 'organization' && grant.scopeId === org.id) ||
       (grant.scopeType === 'reportingArea' && (org.reportingAreaIds as string[]).includes(grant.scopeId)),
-    );
+    ));
   });
   const org = organizations.find((item) => item.id === orgId) ?? organizations[0];
   const areaIds = Array.isArray(org?.reportingAreaIds) ? org.reportingAreaIds as string[] : [];
@@ -48,17 +51,39 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
     setBusy(true);
     loadSales(seasonId, org.id, areaId).then((saved) => {
       if (!active) return;
-      onChange((current) => [...current, ...saved.filter((row) => !current.some((item) => item.id === row.id))]);
+      onChange((current) => [
+        ...current.filter((row) => !(row.seasonId === seasonId && row.organizationId === org.id && row.reportingAreaId === areaId)),
+        ...saved,
+      ]);
       setLoadedScope(scope);
     }).catch((error) => { if (active) setStatus(persistenceMessage(error, language)); })
       .finally(() => { if (active) setBusy(false); });
     return () => { active = false; };
   }, [scope, developmentMode, onChange]);
 
-  const editable = !busy && loadedScope === scope && canWrite && Boolean(org) && (developmentMode || access?.isAdmin || (access?.grants ?? []).some((grant) =>
+  async function reloadSavedSales() {
+    if (busy || !org || !areaId) return;
+    setBusy(true);
+    setStatus('');
+    try {
+      const saved = await loadSales(seasonId, org.id, areaId);
+      onChange((current) => [
+        ...current.filter((row) => !(row.seasonId === seasonId && row.organizationId === org.id && row.reportingAreaId === areaId)),
+        ...saved,
+      ]);
+      setLoadedScope(scope);
+      setStatus(language === 'de' ? 'Daten aus Firebase neu geladen' : 'Dati ricaricati da Firebase');
+    } catch (error) {
+      setStatus(persistenceMessage(error, language));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const editable = !busy && loadedScope === scope && canWrite && Boolean(org) && (access?.isAdmin || (access && organizationAllows(access, org!.id, true) &&
+    access.memberships.some((membership) => membership.active && membership.organizationId === org?.id) && (access?.grants ?? []).some((grant) =>
     grant.active && grant.permissions.includes('ticketSales.write') &&
     (grant.scopeType === 'network' || (grant.scopeType === 'organization' && grant.scopeId === org?.id) || (grant.scopeType === 'reportingArea' && grant.scopeId === areaId)),
-  ));
+  )));
   const money = (value: number) => new Intl.NumberFormat(language === 'de' ? 'de-DE' : 'it-IT', { style: 'currency', currency: 'EUR' }).format(value);
   const products = Object.keys(productLabels) as ProductCode[];
   const cells = products.map((productCode) => {
@@ -78,7 +103,7 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
     setBusy(true);
     setStatus('');
     try {
-      const saved = await saveSales(cells.filter((cell) => !cell.draft.pricing).map((cell) => cell.draft), pricingRows);
+      const saved = await saveSales(cells.map((cell) => cell.draft), pricingRows);
       onChange((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
       setStatus(language === 'de' ? 'In Firebase gespeichert' : 'Salvato in Firebase');
     } catch (error) {
@@ -90,9 +115,10 @@ export function SalesEntry({ master, access, developmentMode, canWrite, language
   return <section className="dns-card p-5 md:p-6">
     <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="dns-section-title">{t.title}</h2><span className="dns-pill">{t.draft}</span></div>
     <div className="mt-3 flex flex-wrap items-center gap-3">
-      <button type="button" disabled={!editable || !pricingLoaded || developmentMode || !cells.some((cell) => cell.valid && !cell.draft.pricing) || cells.some((cell) => (cell.draft.quantity !== null || cell.draft.amountOverride !== null) && !cell.valid)} onClick={persist} className="dns-button disabled:opacity-40" data-variant="primary">
+      <button type="button" disabled={!editable || !pricingLoaded || developmentMode || !cells.some((cell) => cell.valid) || cells.some((cell) => (cell.draft.quantity !== null || cell.draft.amountOverride !== null) && !cell.valid)} onClick={persist} className="dns-button disabled:opacity-40" data-variant="primary">
         {busy ? (language === 'de' ? 'Laden…' : 'Caricamento…') : (language === 'de' ? 'In Firebase speichern' : 'Salva in Firebase')}
       </button>
+      <button type="button" disabled={busy || !org || loadedScope !== scope} className="dns-btn-secondary" onClick={() => void reloadSavedSales()}>{language === 'de' ? 'Neu laden' : 'Ricarica dati'}</button>
       <span role="status" className="font-alt text-[11px]">{status}</span>
     </div>
     <p className="mt-3 font-alt text-[12px] text-dns-muted">{t.intro}</p>

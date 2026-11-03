@@ -1,0 +1,23 @@
+import {execFileSync} from 'node:child_process';
+import {readFileSync,existsSync} from 'node:fs';
+import assert from 'node:assert/strict';
+const dir='.acceptance-upstream';
+const track='877b6af2c3ba1d8ef8b0e41e27afe09b9770a3f7';
+const flyer='48cfbca2b902a15d316fc54e2638f5bd74f72909';
+const candidate='88bc6c101e611ed20fac23fbda8997584844b088';
+if(existsSync(dir))throw Error('Use a clean checkout for upstream verification');
+const git=(...args)=>execFileSync('git',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
+git('clone','--no-checkout','https://github.com/dolomitinordicski/dns-shared-data.git',dir);
+git('-C',dir,'checkout','--detach',candidate);
+git('-C',dir,'merge-base','--is-ancestor',track,candidate);
+git('-C',dir,'fetch','--no-tags','origin',flyer);
+const normalize=s=>s.replace(/\r\n/g,'\n').trimEnd();
+assert.equal(normalize(readFileSync(`${dir}/firestore.rules`,'utf8')),normalize(readFileSync('tests/acceptance/upstream/firestore.rules','utf8')));
+const flyerPolicy=source=>{
+  const start=source.indexOf('    match /flyerDocuments/');
+  const end=source.indexOf('    // Immutable publication snapshots.',start);
+  assert.ok(start>=0&&end>start,'Flyer policy anchors must exist');
+  return source.slice(start,end).replace(/\/\/[^\n]*/g,'').replace(/\s/g,'');
+};
+assert.equal(flyerPolicy(readFileSync(`${dir}/firestore.rules`,'utf8')),flyerPolicy(git('-C',dir,'show',`${flyer}:firestore.rules`)));
+console.log(`Exact release candidate #232 ${candidate}; includes #231 ${track} and explicit Flyer policy #221 ${flyer}`);

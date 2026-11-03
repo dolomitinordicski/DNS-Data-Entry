@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  runTransaction,
   getDocs,
   query,
   serverTimestamp,
@@ -12,6 +13,7 @@ import {
 import { auth } from './auth';
 import { db } from './dnsCore';
 import type { DNSAccessContext } from '../types/access';
+import { organizationAllows } from './organizationAccess';
 
 export type KpMilestoneDoc = {
   id: string;
@@ -99,18 +101,25 @@ export async function loadKpMilestones(seasonId: string): Promise<KpMilestoneDoc
 
 export async function loadKpEntries(seasonId: string, access: DNSAccessContext): Promise<KpEntryDoc[]> {
   const grants = access.grants.filter((grant) => grant.active && grant.permissions.includes('kp.read'));
-  const unrestricted =
-    access.isAdmin ||
-    grants.some((grant) => grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski');
-
-  const queries = unrestricted
+  const readableOrganizations = await Promise.all(access.memberships.filter(member =>
+    organizationAllows(access, member.organizationId)).map(async member => {
+    const org = await getDoc(doc(db, 'organizations', member.organizationId));
+    const areas = (org.data()?.reportingAreaIds ?? []) as string[];
+    return areas.filter(areaId => grants.some(grant =>
+      (grant.scopeType === 'network' && grant.scopeId === 'dolomiti-nordicski') ||
+      (grant.scopeType === 'organization' && grant.scopeId === member.organizationId) ||
+      (grant.scopeType === 'reportingArea' && grant.scopeId === areaId)))
+      .map(areaId => ({ organizationId: member.organizationId, reportingAreaId: areaId }));
+  }));
+  const queries = access.isAdmin
     ? [query(collection(db, 'kpEntries'), where('seasonId', '==', seasonId))]
-    : grants
-      .filter((grant) => grant.scopeType === 'organization' || grant.scopeType === 'reportingArea')
-      .map((grant) => query(
+    : readableOrganizations.flat()
+      .map((scope) => query(
         collection(db, 'kpEntries'),
         where('seasonId', '==', seasonId),
-        where(grant.scopeType === 'organization' ? 'entityId' : 'reportingAreaId', '==', grant.scopeId),
+        where('entityType', '==', 'organization'),
+        where('entityId', '==', scope.organizationId),
+        where('reportingAreaId', '==', scope.reportingAreaId),
       ));
 
   const snapshots = await Promise.all(queries.map((item) => getDocs(item)));
@@ -151,29 +160,28 @@ export async function saveKpMilestone(value: KpMilestoneDoc) {
   });
 }
 
-export async function saveKpEntry(value: Omit<KpEntryDoc, 'revision'>) {
+export async function saveKpEntry(value: Omit<KpEntryDoc, 'revision'>, expectedRevision = 0) {
   const userId = uid();
   const ref = doc(db, 'kpEntries', value.id);
-  const existing = await getDoc(ref);
-  const next = {
-    ...value,
-    provenance,
-    revision: existing.exists() ? Number(existing.data().revision ?? 1) + 1 : 1,
-    updatedBy: userId,
-    updatedAt: serverTimestamp(),
-  };
-
-  if (!existing.exists()) {
-    await setDoc(ref, next);
+  return runTransaction(db, async (transaction) => {
+    const existing = await transaction.get(ref);
+    const previous = existing.exists() ? existing.data() : null;
+    const actualRevision = Number(previous?.revision ?? 0);
+    if (actualRevision !== expectedRevision) throw new Error('CONFLICT_RELOAD');
+    if (previous?.provenance?.dataStatus && previous.provenance.dataStatus !== 'draft') {
+      throw new Error('RECORD_LOCKED');
+    }
+    const next = {
+      ...value,
+      provenance,
+      revision: actualRevision + 1,
+      updatedBy: userId,
+      updatedAt: serverTimestamp(),
+    };
+    if (previous) transaction.set(doc(ref, 'revisions', String(actualRevision)), previous);
+    transaction.set(ref, next);
     return next.revision;
-  }
-
-  const previous = existing.data();
-  const batch = writeBatch(db);
-  batch.set(doc(db, 'kpEntries', value.id, 'revisions', String(previous.revision ?? 1)), previous);
-  batch.set(ref, next);
-  await batch.commit();
-  return next.revision;
+  });
 }
 
 export async function validateKpFairCandidate(

@@ -1,0 +1,40 @@
+name: Integrated Data Entry acceptance
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/acceptance/verify-upstream.mjs
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false @playwright/test@1.56.1 @firebase/rules-unit-testing@5.0.0 firebase-tools@14.12.0
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - name: Production excludes test emulator configuration and DEV personas
+        run: '! grep -q -R -E "demo-dns-identity|9098|8188|dev-area-test|DEV MODE" dist/assets/*.js'
+      - name: Auth, forms and rules in isolated virtual DNS organization
+        if: always()
+        env:
+          GCLOUD_PROJECT: demo-dns-identity
+          FIRESTORE_EMULATOR_HOST: 127.0.0.1:8188
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9098
+        run: npx firebase emulators:exec --config tests/acceptance/firebase.json --only auth,firestore --project demo-dns-identity "npx playwright test --config tests/acceptance/playwright.config.mjs"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: data-entry-acceptance
+          path: |
+            playwright-report
+            test-results
+            *debug.log

@@ -16,8 +16,6 @@ const copy = {
     pending: 'Anmeldung…',
     note: 'Der Zugang ist nur für freigeschaltete DNS-Benutzer vorgesehen.',
     error: 'Anmeldung nicht möglich. Bitte Zugangsdaten und Firebase-Authentifizierung prüfen.',
-    devMode: 'Entwicklungsmodus',
-    devNote: 'Frontend ohne Firebase-Login öffnen. Keine Firestore-Sicherheitsregel wird umgangen.',
   },
   it: {
     title: 'DNS Data Entry',
@@ -28,19 +26,15 @@ const copy = {
     pending: 'Accesso…',
     note: 'L’accesso è riservato agli utenti DNS abilitati.',
     error: 'Accesso non riuscito. Verifica le credenziali e la configurazione Firebase Authentication.',
-    devMode: 'Modalità sviluppo',
-    devNote: 'Apre il frontend senza login Firebase. Non aggira alcuna regola di sicurezza Firestore.',
   },
 } as const;
 
 export function LoginScreen({
   language,
   onLanguageChange,
-  onDevelopmentMode,
 }: {
   language: Language;
   onLanguageChange: (language: Language) => void;
-  onDevelopmentMode: () => void;
 }) {
   const t = copy[language];
   const [email, setEmail] = useState('');
@@ -144,22 +138,6 @@ export function LoginScreen({
             </button>
           </form>
 
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-dns-mid/15" />
-            <span className="font-alt text-[9px] uppercase tracking-[.06em] text-dns-muted">DEV</span>
-            <div className="h-px flex-1 bg-dns-mid/15" />
-          </div>
-
-          <button
-            type="button"
-            onClick={onDevelopmentMode}
-            className="dns-button w-full" data-variant="secondary"
-          >
-            {t.devMode}
-          </button>
-          <p className="mt-2 font-alt text-[10px] leading-relaxed text-dns-muted">
-            {t.devNote}
-          </p>
         </section>
       </main>
       <DNSFooter detail={t.subtitle} />

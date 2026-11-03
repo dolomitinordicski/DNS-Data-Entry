@@ -4,6 +4,7 @@ export type ModuleId =
   | 'orders'
   | 'sales'
   | 'kp'
+  | 'track-quality'
   | 'verification';
 
 export interface ModuleDefinition {
@@ -43,6 +44,12 @@ export const modules: ModuleDefinition[] = [
     label: { de: 'KP', it: 'KP' },
     subtitle: { de: 'Loipen & Beschneiung', it: 'Piste e innevamento' },
     phase: { de: 'Geplant', it: 'Pianificato' },
+  },
+  {
+    id: 'track-quality',
+    label: { de: 'Loipenkontrolle', it: 'Controllo piste' },
+    subtitle: { de: 'Saisonale Qualitätskontrolle', it: 'Controllo qualità stagionale' },
+    phase: { de: 'Erfassung', it: 'Inserimento' },
   },
   {
     id: 'verification',
