@@ -4,7 +4,7 @@ This suite uses only `demo-dns-identity`, Auth at 127.0.0.1:9098 and Firestore a
 
 The dedicated Vite configuration replaces only the Firebase connection module. Authentication, access loading, persistence services, UI and security rules are real. There is no test login, successful API mock or production emulator switch. External browser requests are blocked. Setup alone bypasses rules to seed fixtures.
 
-`verify-upstream.mjs` checks out the exact Shared Data #232 candidate d7125abd67f42fec187c8be3ae5a8b41472e5b71 and compares its rules with the tested snapshot. It also verifies that #231 is an ancestor and that the Flyer document policy matches the explicit-permission policy of #221. This does not merge a PR or deploy rules.
+`verify-upstream.mjs` checks out the exact Shared Data #232 candidate 8d413e3ff0c472f1f565e26b3911189b05450a25 and compares its Firestore rules with the tested snapshot. It also verifies that #231 is an ancestor and that the Flyer document policy matches the explicit-permission policy of #221. Storage rules added for Flyer do not change the Data Entry Firestore policy. This does not merge a PR or deploy rules.
 
 GitHub Actions `Integrated Data Entry acceptance` builds the production app, checks that test configuration and DEV personas are excluded, then runs Chromium against the two emulators. Browser reports and failure traces are uploaded. The test configuration is separate from the production Vite configuration.
 

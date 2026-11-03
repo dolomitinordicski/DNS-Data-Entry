@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 const dir='.acceptance-upstream';
 const track='877b6af2c3ba1d8ef8b0e41e27afe09b9770a3f7';
 const flyer='48cfbca2b902a15d316fc54e2638f5bd74f72909';
-const candidate='d7125abd67f42fec187c8be3ae5a8b41472e5b71';
+const candidate='8d413e3ff0c472f1f565e26b3911189b05450a25';
 if(existsSync(dir))throw Error('Use a clean checkout for upstream verification');
 const git=(...args)=>execFileSync('git',args,{encoding:'utf8',stdio:['ignore','pipe','pipe']});
 git('clone','--no-checkout','https://github.com/dolomitinordicski/dns-shared-data.git',dir);
