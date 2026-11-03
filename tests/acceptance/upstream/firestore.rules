@@ -1101,7 +1101,6 @@ service cloud.firestore {
     }
 
     // DNS Flyer Studio working documents.
-    // Owning a document never grants read/write permissions implicitly.
     match /flyerDocuments/{document} {
       allow read: if activeUser()
         && hasFlyerPermission('flyer.read', resource.data);
@@ -1366,3 +1365,4 @@ service cloud.firestore {
     }
   }
 }
+
