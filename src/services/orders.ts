@@ -162,20 +162,20 @@ export async function loadPersistedOrderMatrix({
     const [headers, lines] = await Promise.all([
       getDocs(query(
         collection(db, 'ticketOrders'),
-        where('seasonId', '==', seasonId),
-        where('category', '==', category),
         where('organizationId', '==', organization.organizationId),
         where('reportingAreaId', '==', reportingAreaId),
       )),
       getDocs(query(
         collection(db, 'ticketOrderLines'),
-        where('seasonId', '==', seasonId),
         where('organizationId', '==', organization.organizationId),
         where('reportingAreaId', '==', reportingAreaId),
       )),
     ]);
     const expectedOrderId = orderId(seasonId, category, organization.organizationId);
-    const header = headers.docs.find(item => item.id === expectedOrderId);
+    const header = headers.docs.find(item =>
+      item.id === expectedOrderId &&
+      item.data().seasonId === seasonId &&
+      item.data().category === category);
     if (header) {
       persistedOrderIds.add(header.id);
       const status = header.data().status;
@@ -186,7 +186,8 @@ export async function loadPersistedOrderMatrix({
       orderStatuses[organization.organizationId] = 'draft';
     }
     const lineById = new Map(lines.docs
-      .filter(item => item.data().ticketOrderId === expectedOrderId)
+      .filter(item => item.data().ticketOrderId === expectedOrderId &&
+        item.data().seasonId === seasonId)
       .map(item => [item.id, item]));
     for (const item of items) {
       const id = lineId(seasonId, category, organization.organizationId, item.id);
