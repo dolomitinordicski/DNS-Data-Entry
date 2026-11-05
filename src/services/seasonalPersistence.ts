@@ -8,7 +8,7 @@ import { organizationAllows } from './organizationAccess';
 
 export function resolvePricing(rows: PricingDraftRow[], sale: SalesDraftRow) {
   return (['organization', 'reportingArea', 'network'] as const).map((scope) => rows.find((row) =>
-    row.unitPrice !== null && row.unitPrice !== undefined && row.seasonId === sale.seasonId && row.scopeType === scope &&
+    row.active !== false && row.unitPrice !== null && row.unitPrice !== undefined && row.seasonId === sale.seasonId && row.scopeType === scope &&
     row.scopeId === (scope === 'organization' ? sale.organizationId : scope === 'reportingArea' ? sale.reportingAreaId : 'dolomiti-nordicski') &&
     row.productCode === sale.productCode && row.salesChannel === sale.salesChannel && row.salesPeriod === sale.salesPeriod,
   )).find((row) => row?.unitPrice !== null && row?.unitPrice !== undefined);
@@ -22,7 +22,7 @@ export async function loadPricing(seasonId: string, access: DNSAccessContext): P
       ...access.memberships.filter(member => organizationAllows(access, member.organizationId)).map(member =>
         query(base, where('seasonId','==',seasonId),where('scopeType','==','organization'),where('scopeId','==',member.organizationId)))];
   const snapshots = await Promise.all(queries.map(item => getDocs(item)));
-  return snapshots.flatMap(snapshot => snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as PricingDraftRow)));
+  return snapshots.flatMap(snapshot => snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as PricingDraftRow))).filter(row => row.active !== false);
 }
 
 async function saveRevision(collectionName: string, id: string, expectedRevision: number, payload: Record<string, unknown>, pricing?: PricingDraftRow) {
@@ -68,6 +68,33 @@ export async function savePricing(rows: PricingDraftRow[]) {
   return result;
 }
 
+/**
+ * Retire a persisted organization-scoped price override without deleting history.
+ * Uses the same revision archive contract as edits, and refuses stale/locked rows.
+ */
+export async function retirePricingOrganizationOverride(row: PricingDraftRow): Promise<void> {
+  if (row.scopeType !== 'organization') throw new Error('ONLY_ORGANIZATION_OVERRIDES');
+  if (!row.revision) throw new Error('OVERRIDE_NOT_PERSISTED');
+  if (!auth.currentUser) throw new Error('LOGIN_REQUIRED');
+  const ref = doc(db, 'ticketPricingConfigs', row.id);
+  await runTransaction(db, async transaction => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists()) throw new Error('CONFLICT_RELOAD');
+    const previous = snapshot.data();
+    if (previous.revision !== row.revision || previous.active !== true
+        || previous.scopeType !== 'organization' || previous.scopeId !== row.scopeId
+        || previous.seasonId !== row.seasonId || previous.productCode !== row.productCode
+        || previous.salesChannel !== row.salesChannel || previous.salesPeriod !== row.salesPeriod)
+      throw new Error('CONFLICT_RELOAD');
+    if (previous.provenance?.dataStatus !== 'draft') throw new Error('RECORD_LOCKED');
+    transaction.set(doc(ref, 'revisions', String(row.revision)), previous);
+    transaction.update(ref, {
+      active: false, revision: row.revision + 1,
+      updatedBy: auth.currentUser!.uid, updatedAt: serverTimestamp(),
+    });
+  });
+}
+
 export async function loadSales(seasonId: string, organizationId: string, reportingAreaId: string): Promise<SalesDraftRow[]> {
   const snapshot = await getDocs(query(collection(db, 'ticketSales'), where('seasonId', '==', seasonId), where('organizationId', '==', organizationId), where('reportingAreaId', '==', reportingAreaId)));
   return snapshot.docs.map((item) => ({ ...item.data(), id: item.data().draftKey } as SalesDraftRow));
@@ -106,6 +133,7 @@ export function persistenceMessage(error: unknown, language: 'de' | 'it') {
     SAVE_PRICING_FIRST: ['Tarife zuerst speichern; geänderte Tarife erneut laden.', 'Salva prima le tariffe; se sono cambiate, ricarica la pagina.'],
     SAVED_VALUE_CANNOT_BE_CLEARED: ['Gespeicherte Werte nicht leeren. Bei keinen Verkäufen 0 eintragen.', 'Non svuotare valori già salvati. Per nessuna vendita inserisci 0.'],
     RECORD_LOCKED: ['Dieser Datensatz ist bereits eingereicht oder geprüft.', 'Questo dato è già inviato o verificato.'],
+    ONLY_ORGANIZATION_OVERRIDES: ['Nur Organisations-Overrides können entfernt werden.', 'Si possono eliminare solo gli override di organizzazione.'],
     INVALID_PRICE: ['Preise prüfen: nur gültige, nicht negative Beträge.', 'Controlla i prezzi: servono importi validi e non negativi.'],
     INVALID_SALES: ['Mengen, Beträge und Begründungen prüfen.', 'Controlla quantità, importi e motivazioni.'],
     'permission-denied': ['Kein Firebase-Zugriff für diesen Vorgang.', 'Accesso Firebase non abilitato per questa operazione.'],
