@@ -555,7 +555,7 @@ function App() {
                   seasonId={String(activeSeason.id)}
                   organizations={master.organizations}
                   isAdmin={effectiveAccess?.isAdmin === true}
-                  currentUserId={developmentMode ? null : (authUser?.uid ?? null)}
+                  currentUserId={authUser?.uid ?? null}
                 />
               )}
             </div>
