@@ -15,6 +15,7 @@ interface Props {
   onChange: (rows: PricingDraftRow[]) => void;
   readOnly?: boolean;
   onSave: () => void;
+  onDeleteOverride: (row: PricingDraftRow) => void;
   canEditRow: (row: PricingDraftRow) => boolean;
   saving: boolean;
   canSave: boolean;
@@ -42,6 +43,8 @@ const text = {
     selectProduct: 'Produkt wählen',
     addOverride: 'Override hinzufügen',
     empty: 'Noch keine Organisations-Overrides im Entwurf.',
+    remove: 'Entfernen',
+    actions: 'Aktionen',
   },
   it: {
     title: 'Configurazione tariffe',
@@ -63,6 +66,8 @@ const text = {
     selectProduct: 'Seleziona prodotto',
     addOverride: 'Aggiungi override',
     empty: 'Nessun override organizzazione nella bozza.',
+    remove: 'Elimina',
+    actions: 'Azioni',
   },
 } as const;
 
@@ -93,7 +98,7 @@ function PriceInput({
   );
 }
 
-export function PricingSetup({ language, seasonId, reportingAreas, organizations, rows, onChange, readOnly = false, onSave, saving, canSave, saveStatus, canEditRow }: Props) {
+export function PricingSetup({ language, seasonId, reportingAreas, organizations, rows, onChange, readOnly = false, onSave, onDeleteOverride, saving, canSave, saveStatus, canEditRow }: Props) {
   const t = text[language];
   const [selectedArea, setSelectedArea] = useState(reportingAreas[0]?.id ?? '');
   const [overrideOrg, setOverrideOrg] = useState('');
@@ -106,7 +111,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
   const areaRows = rows.filter(
     (row) => row.scopeType === 'reportingArea' && row.scopeId === selectedArea,
   );
-  const overrideRows = rows.filter((row) => row.scopeType === 'organization');
+  const overrideRows = rows.filter((row) => row.scopeType === 'organization' && row.active !== false);
 
   const areaById = useMemo(
     () => Object.fromEntries(reportingAreas.map((area) => [area.id, area])),
@@ -129,7 +134,15 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
     if (readOnly) return;
     if (!overrideOrg || !overrideProduct) return;
     const id = `${seasonId}-${overrideOrg}-${overrideProduct}-official-regular`;
-    if (rows.some((row) => row.id === id)) return;
+    const existing = rows.find((row) => row.id === id);
+    if (existing?.active !== false && existing) return;
+    if (existing?.active === false) {
+      if (!canEditRow(existing)) return;
+      onChange(rows.map(row => row.id === id ? {
+        ...row, active: true, unitPrice: null, settlementUnitPrice: null,
+      } : row));
+      return;
+    }
     const proposed: PricingDraftRow = {
         id,
         seasonId,
@@ -160,6 +173,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
             <th className="px-3 py-2">{t.period}</th>
             <th className="px-3 py-2 text-right">{t.price}</th>
             <th className="px-3 py-2 text-right">{t.settlement}</th>
+            {includeOrganization && <th className="px-3 py-2 text-right">{t.actions}</th>}
           </tr>
         </thead>
         <tbody>
@@ -210,6 +224,17 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
                   />
                 </div>
               </td>
+              {includeOrganization && (
+                <td className="px-3 py-2 text-right">
+                  <button
+                    type="button"
+                    disabled={readOnly || !canEditRow(row)}
+                    onClick={() => onDeleteOverride(row)}
+                    className="rounded border border-red-300 px-2 py-1 text-[11px] text-red-700 disabled:opacity-40"
+                    aria-label={`${t.remove}: ${organizationById[row.scopeId]?.canonicalName ?? row.scopeId} – ${productLabels[row.productCode][language]}`}
+                  >{t.remove}</button>
+                </td>
+              )}
             </tr>
           ))}
         </tbody>

@@ -1,7 +1,7 @@
 import { HistoricalSeason } from './features/season/HistoricalSeason';
 import { KPDataEntry } from './features/kp/KPDataEntry';
 import { TrackQualityWorkspace } from './features/track-quality/TrackQualityWorkspace';
-import { loadPricing, savePricing, persistenceMessage } from './services/seasonalPersistence';
+import { loadPricing, savePricing, retirePricingOrganizationOverride, persistenceMessage } from './services/seasonalPersistence';
 import { SalesEntry } from './features/sales/SalesEntry';
 import type { SalesDraftRow } from './types/sales';
 import { AccessibilityMount } from './components/AccessibilityMount';
@@ -223,11 +223,35 @@ function App() {
     );
   }
 
+  async function removePricingOrganizationOverride(row: PricingDraftRow) {
+    if (!pricingLoaded || pricingBusy || !canManageTariff(row)
+        || row.scopeType !== 'organization' || row.active === false) return;
+    const message = language === 'de'
+      ? `Organisations-Override „${row.scopeId} / ${row.productCode}“ entfernen? Der Tarif wird deaktiviert, die Revisionshistorie bleibt bestehen.`
+      : `Eliminare l'override «${row.scopeId} / ${row.productCode}»? La tariffa sarà disattivata, conservando lo storico delle revisioni.`;
+    if (!window.confirm(message)) return;
+    if (!row.revision) {
+      setPricingRows(current => current.filter(item => item.id !== row.id));
+      setPricingStatus(language === 'de' ? 'Ungespeicherter Override entfernt.' : 'Override non salvato eliminato.');
+      return;
+    }
+    setPricingBusy(true);
+    setPricingStatus('');
+    try {
+      await retirePricingOrganizationOverride(row);
+      setPricingRows(current => current.map(item => item.id === row.id
+        ? { ...item, active: false, revision: row.revision! + 1 } : item));
+      setPricingStatus(language === 'de' ? 'Override deaktiviert; Historie gespeichert.' : 'Override disattivato; cronologia conservata.');
+    } catch (error) {
+      setPricingStatus(persistenceMessage(error, language));
+    } finally { setPricingBusy(false); }
+  }
+
   async function persistPricing() {
     setPricingBusy(true);
     setPricingStatus('');
     try {
-      const saved = await savePricing(pricingRows.filter(canManageTariff));
+      const saved = await savePricing(pricingRows.filter(row => row.active !== false && canManageTariff(row)));
       setPricingRows((current) => [...current.filter((row) => !saved.some((item) => item.id === row.id)), ...saved]);
       setPricingStatus(language === 'de' ? 'In Firebase gespeichert' : 'Salvato in Firebase');
     } catch (error) {
@@ -493,7 +517,7 @@ function App() {
               rows={pricingRows}
               onChange={(rows) => { setPricingStatus(''); setPricingRows(rows); }}
               readOnly={!canManagePricing || pricingBusy}
-              onSave={persistPricing} saving={pricingBusy}
+              onSave={persistPricing} onDeleteOverride={removePricingOrganizationOverride} saving={pricingBusy}
               canSave={canManagePricing && pricingLoaded}
               saveStatus={pricingStatus} canEditRow={canManageTariff}
             />
