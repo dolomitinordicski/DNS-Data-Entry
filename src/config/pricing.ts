@@ -53,7 +53,7 @@ export function createInitialPricingDraft(
       validTo: '',
       notes: '',
     },
-    ...(['sk-dns', 'sk-area', 'sk-instructor'] as const).flatMap((productCode) => [
+    ...(['sk-dns', 'sk-instructor'] as const).flatMap((productCode) => [
       {
         id: `${seasonId}-network-${productCode}-official-regular`,
         seasonId,
@@ -68,7 +68,7 @@ export function createInitialPricingDraft(
         validTo: '',
         notes: '',
       },
-      ...(productCode === 'sk-dns' || productCode === 'sk-area'
+      ...(productCode === 'sk-dns'
         ? [{
             id: `${seasonId}-network-${productCode}-official-presale`,
             seasonId,
@@ -88,7 +88,8 @@ export function createInitialPricingDraft(
   ];
 
   for (const reportingAreaId of reportingAreaIds) {
-    for (const productCode of ['day', 'wk-area'] as const) {
+    // Area season tickets are area-owned products, never DNS/network tariffs.
+    for (const productCode of ['day', 'wk-area', 'sk-area'] as const) {
       for (const salesChannel of ['official', 'online', 'track'] as const) {
         rows.push({
           id: `${seasonId}-${reportingAreaId}-${productCode}-${salesChannel}-regular`,
@@ -98,6 +99,23 @@ export function createInitialPricingDraft(
           productCode,
           salesChannel,
           salesPeriod: 'regular',
+          unitPrice: null,
+          settlementUnitPrice: null,
+          validFrom: '',
+          validTo: '',
+          notes: '',
+        });
+      }
+      // Presale season tariffs can differ by reporting area.
+      if (productCode === 'sk-area') {
+        rows.push({
+          id: `${seasonId}-${reportingAreaId}-sk-area-official-presale`,
+          seasonId,
+          scopeType: 'reportingArea',
+          scopeId: reportingAreaId,
+          productCode: 'sk-area',
+          salesChannel: 'official',
+          salesPeriod: 'presale',
           unitPrice: null,
           settlementUnitPrice: null,
           validFrom: '',
