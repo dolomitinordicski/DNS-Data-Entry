@@ -111,7 +111,7 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
   const areaRows = rows.filter(
     (row) => row.scopeType === 'reportingArea' && row.scopeId === selectedArea,
   );
-  const overrideRows = rows.filter((row) => row.scopeType === 'organization');
+  const overrideRows = rows.filter((row) => row.scopeType === 'organization' && row.active !== false);
 
   const areaById = useMemo(
     () => Object.fromEntries(reportingAreas.map((area) => [area.id, area])),
@@ -134,7 +134,15 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
     if (readOnly) return;
     if (!overrideOrg || !overrideProduct) return;
     const id = `${seasonId}-${overrideOrg}-${overrideProduct}-official-regular`;
-    if (rows.some((row) => row.id === id)) return;
+    const existing = rows.find((row) => row.id === id);
+    if (existing?.active !== false && existing) return;
+    if (existing?.active === false) {
+      if (!canEditRow(existing)) return;
+      onChange(rows.map(row => row.id === id ? {
+        ...row, active: true, unitPrice: null, settlementUnitPrice: null,
+      } : row));
+      return;
+    }
     const proposed: PricingDraftRow = {
         id,
         seasonId,
