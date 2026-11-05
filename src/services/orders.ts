@@ -49,11 +49,13 @@ export async function loadPersistedOrderMatrix({
   category,
   visibleOrganizationIds,
   organizationAreaById,
+  isAdmin = false,
 }: {
   seasonId: string;
   category: OrderMatrixCategory;
   visibleOrganizationIds: Set<string>;
   organizationAreaById: Record<string, string | undefined>;
+  isAdmin?: boolean;
 }): Promise<PersistedOrderMatrix> {
   const [catalogSnapshot, formSnapshot, deliverySnapshot] = await Promise.all([
     getDocs(collection(db, 'orderCatalogItems')),
@@ -120,6 +122,37 @@ export async function loadPersistedOrderMatrix({
   // Query only documents whose reporting area and organization are known.
   // Each query is constrained to the exact area in the authenticated matrix.
   const cells: OrderMatrixDraft['cells'] = [];
+  if (isAdmin) {
+    // Admin must retain the original ID-based reads. They neither require
+    // an organization-to-area mapping nor composite Firestore indexes.
+    await Promise.all(organizations.map(async organization => {
+      const id = orderId(seasonId, category, organization.organizationId);
+      const snapshot = await getDoc(doc(db, 'ticketOrders', id));
+      if (snapshot.exists()) {
+        persistedOrderIds.add(id);
+        const status = snapshot.data().status;
+        orderStatuses[organization.organizationId] =
+          status === 'submitted' || status === 'confirmed' || status === 'fulfilled' || status === 'cancelled'
+            ? status : 'draft';
+      } else {
+        orderStatuses[organization.organizationId] = 'draft';
+      }
+    }));
+    const entries = await Promise.all(organizations.flatMap(organization =>
+      items.map(async item => {
+        const id = lineId(seasonId, category, organization.organizationId, item.id);
+        const snapshot = await getDoc(doc(db, 'ticketOrderLines', id));
+        if (snapshot.exists()) persistedLineIds.add(id);
+        const quantity = snapshot.exists() ? snapshot.data().quantity : null;
+        return {
+          organizationId: organization.organizationId,
+          itemId: item.id,
+          quantity: typeof quantity === 'number' ? quantity : null,
+        };
+      }),
+    ));
+    cells.push(...entries);
+  } else {
   await Promise.all(organizations.map(async (organization) => {
     const reportingAreaId = organization.reportingAreaId;
     if (!reportingAreaId) {
@@ -167,6 +200,7 @@ export async function loadPersistedOrderMatrix({
       });
     }
   }));
+  }
 
   return {
     draft: {
