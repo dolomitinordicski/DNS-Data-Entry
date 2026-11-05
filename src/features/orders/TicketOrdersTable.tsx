@@ -427,18 +427,21 @@ export function TicketOrdersTable({
           category: 'wristband',
           visibleOrganizationIds,
           organizationAreaById,
+          isAdmin,
         })),
         read('ticket', loadPersistedOrderMatrix({
           seasonId,
           category: 'ticket',
           visibleOrganizationIds,
           organizationAreaById,
+          isAdmin,
         })),
         read('pocketfolder', loadPersistedOrderMatrix({
           seasonId,
           category: 'pocketfolder',
           visibleOrganizationIds,
           organizationAreaById,
+          isAdmin,
         })),
         read('pocketfolder-source', loadPocketfolderSourceRows(seasonId)),
       ]);
