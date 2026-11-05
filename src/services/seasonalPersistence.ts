@@ -22,7 +22,7 @@ export async function loadPricing(seasonId: string, access: DNSAccessContext): P
       ...access.memberships.filter(member => organizationAllows(access, member.organizationId)).map(member =>
         query(base, where('seasonId','==',seasonId),where('scopeType','==','organization'),where('scopeId','==',member.organizationId)))];
   const snapshots = await Promise.all(queries.map(item => getDocs(item)));
-  return snapshots.flatMap(snapshot => snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as PricingDraftRow))).filter(row => row.active !== false);
+  return snapshots.flatMap(snapshot => snapshot.docs.map((item) => ({ id: item.id, ...item.data() } as PricingDraftRow)));
 }
 
 async function saveRevision(collectionName: string, id: string, expectedRevision: number, payload: Record<string, unknown>, pricing?: PricingDraftRow) {
@@ -50,9 +50,9 @@ async function saveRevision(collectionName: string, id: string, expectedRevision
 }
 
 export async function savePricing(rows: PricingDraftRow[]) {
-  const filled = rows.filter((row) => row.unitPrice !== null);
+  const filled = rows.filter((row) => row.active !== false && row.unitPrice !== null);
   if (!filled.length) throw new Error('INVALID_PRICE');
-  if (rows.some((row) => row.revision && row.unitPrice === null)) throw new Error('SAVED_VALUE_CANNOT_BE_CLEARED');
+  if (rows.some((row) => row.active !== false && row.revision && row.unitPrice === null)) throw new Error('SAVED_VALUE_CANNOT_BE_CLEARED');
   for (const row of filled) {
     if (!Number.isFinite(row.unitPrice) || row.unitPrice! < 0 || (row.settlementUnitPrice !== null && (!Number.isFinite(row.settlementUnitPrice) || row.settlementUnitPrice < 0))) throw new Error('INVALID_PRICE');
   }
