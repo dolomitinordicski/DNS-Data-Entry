@@ -12,6 +12,7 @@ import { DNS_SHARED_BRAND } from './config/brand';
 import { MODULE_READ_PERMISSION } from './config/access';
 import { modules, type ModuleId } from './config/modules';
 import { createInitialPricingDraft } from './config/pricing';
+import { reconcilePricingRows } from './config/reconcilePricingRows';
 import { LoginScreen } from './features/auth/LoginScreen';
 import { PricingSetup } from './features/pricing/PricingSetup';
 import { WireIcon } from './components/WireIcon';
@@ -206,7 +207,7 @@ function App() {
     loadPricing(String(activeSeason.id), effectiveAccess).then((saved) => {
       if (!active) return;
       const defaults = createInitialPricingDraft(String(activeSeason.id), master?.reportingAreas.map(area => area.id) ?? []);
-      setPricingRows([...defaults.filter(row => !saved.some(item => item.id === row.id)), ...saved]);
+      setPricingRows(reconcilePricingRows(defaults, saved));
       setPricingLoaded(true);
     }).catch((error) => { if (active) setPricingStatus(persistenceMessage(error, language)); })
       .finally(() => { if (active) setPricingBusy(false); });
