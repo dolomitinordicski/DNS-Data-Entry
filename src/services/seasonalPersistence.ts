@@ -74,22 +74,23 @@ export async function savePricing(rows: PricingDraftRow[]) {
  */
 export async function retirePricingOrganizationOverride(row: PricingDraftRow): Promise<void> {
   if (row.scopeType !== 'organization') throw new Error('ONLY_ORGANIZATION_OVERRIDES');
-  if (!row.revision) throw new Error('OVERRIDE_NOT_PERSISTED');
+  const expectedRevision = row.revision;
+  if (!expectedRevision) throw new Error('OVERRIDE_NOT_PERSISTED');
   if (!auth.currentUser) throw new Error('LOGIN_REQUIRED');
   const ref = doc(db, 'ticketPricingConfigs', row.id);
   await runTransaction(db, async transaction => {
     const snapshot = await transaction.get(ref);
     if (!snapshot.exists()) throw new Error('CONFLICT_RELOAD');
     const previous = snapshot.data();
-    if (previous.revision !== row.revision || previous.active !== true
+    if (previous.revision !== expectedRevision || previous.active !== true
         || previous.scopeType !== 'organization' || previous.scopeId !== row.scopeId
         || previous.seasonId !== row.seasonId || previous.productCode !== row.productCode
         || previous.salesChannel !== row.salesChannel || previous.salesPeriod !== row.salesPeriod)
       throw new Error('CONFLICT_RELOAD');
     if (previous.provenance?.dataStatus !== 'draft') throw new Error('RECORD_LOCKED');
-    transaction.set(doc(ref, 'revisions', String(row.revision)), previous);
+    transaction.set(doc(ref, 'revisions', String(expectedRevision)), previous);
     transaction.update(ref, {
-      active: false, revision: row.revision + 1,
+      active: false, revision: expectedRevision + 1,
       updatedBy: auth.currentUser!.uid, updatedAt: serverTimestamp(),
     });
   });
