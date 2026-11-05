@@ -1,0 +1,22 @@
+name: Data Entry pricing row reconciliation
+on:
+  pull_request:
+    paths:
+      - 'src/config/pricing.ts'
+      - 'src/config/reconcilePricingRows.ts'
+      - 'src/App.tsx'
+      - 'src/features/pricing/PricingSetup.tsx'
+      - 'tests/reconcile-pricing-rows.test.mjs'
+      - '.github/workflows/pricing-reconciliation.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pricing-rows:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --experimental-strip-types --test tests/reconcile-pricing-rows.test.mjs
