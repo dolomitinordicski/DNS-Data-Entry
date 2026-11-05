@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "firebase": "^12.3.0",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
     "@dolomitinordicski/dns-shared-data": "github:dolomitinordicski/dns-shared-data#foundation-v1.3.0",
     "xlsx": "^0.18.5"
   },
@@ -20,9 +20,9 @@
     "@tailwindcss/vite": "^4.1.13",
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
-    "@vitejs/plugin-react": "^5.0.2",
+    "@vitejs/plugin-react": "^6.1.2",
     "tailwindcss": "^4.1.13",
-    "typescript": "^5.9.2",
-    "vite": "^7.1.7"
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
   }
 }
