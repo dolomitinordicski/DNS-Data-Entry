@@ -416,9 +416,18 @@ export function TicketOrdersTable({
       const read = async <T,>(label: string, task: Promise<T>): Promise<T> => {
         try { return await task; }
         catch (error) {
-          const code = typeof error === 'object' && error !== null && 'code' in error
-            ? String((error as { code: unknown }).code) : 'unknown';
-          throw new Error(`${label} (${code})`, { cause: error });
+          // Preserve the underlying Firebase error; service-layer Error
+          // wrappers may put the SDK code in cause rather than on the Error.
+          const causes: unknown[] = [];
+          let cursor: unknown = error;
+          for (let depth = 0; depth < 4 && cursor; depth++) {
+            causes.push(cursor);
+            cursor = cursor instanceof Error ? cursor.cause : undefined;
+          }
+          const firebase = causes.find(e => typeof e === 'object' && e !== null && 'code' in e);
+          const code = firebase && 'code' in firebase ? String(firebase.code) : 'unknown';
+          const message = error instanceof Error ? error.message : '';
+          throw new Error(`${label} (${code})${code === 'unknown' && message ? ': ' + message : ''}`, { cause: error });
         }
       };
       const [wristband, ticket, pocketfolder, sourceRows] = await Promise.all([
