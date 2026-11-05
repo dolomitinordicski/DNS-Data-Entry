@@ -13,6 +13,7 @@ export type ProductCode =
 export interface PricingDraftRow {
   id: string;
   revision?: number;
+  active?: boolean;
   seasonId: string;
   scopeType: PricingScope;
   scopeId: string;
