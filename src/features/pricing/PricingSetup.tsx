@@ -38,7 +38,6 @@ const text = {
     organizationLabel: 'Organisation',
     noWrite: 'Tarife · explizit in Firebase speichern',
     inherited: 'Nur für bestätigte Ausnahmen. Priorität: Organisation → Gebiet → DNS.',
-    legacy: 'Frühere Gebietssaisonpreise im DNS-Netzwerkbereich bleiben in Firebase erhalten, werden aber nicht automatisch auf einzelne Gebiete übertragen. Den korrekten Saisonpreis bitte unter Gebietstarife eingeben und speichern.',
     selectOrg: 'Organisation wählen',
     selectProduct: 'Produkt wählen',
     addOverride: 'Override hinzufügen',
@@ -61,7 +60,6 @@ const text = {
     organizationLabel: 'Organizzazione',
     noWrite: 'Tariffe · salvataggio esplicito in Firebase',
     inherited: 'Solo per eccezioni confermate. Priorità: organizzazione → area → DNS.',
-    legacy: 'Prezzi stagionali Area precedentemente salvati come tariffe DNS: conservati in Firebase, ma non utilizzati automaticamente come tariffe delle singole aree. Inserisci e salva lo stagionale corretto nella sezione Tariffe area. Nessuna migrazione automatica.',
     selectOrg: 'Seleziona organizzazione',
     selectProduct: 'Seleziona prodotto',
     addOverride: 'Aggiungi override',
@@ -105,9 +103,6 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
   const [overrideProduct, setOverrideProduct] = useState('');
 
   const networkRows = rows.filter((row) => row.scopeType === 'network' && row.productCode !== 'sk-area');
-  // Historical network-scoped sk-area records remain loaded and untouched in Firestore.
-  // They must not masquerade as editable DNS products after the scope correction.
-  const legacyAreaSeasonRows = rows.filter((row) => row.scopeType === 'network' && row.productCode === 'sk-area' && row.unitPrice !== null);
   const areaRows = rows.filter(
     (row) => row.scopeType === 'reportingArea' && row.scopeId === selectedArea,
   );
@@ -266,11 +261,6 @@ export function PricingSetup({ language, seasonId, reportingAreas, organizations
           <div className="dns-section-title">{t.network}</div>
         </div>
         {renderRows(networkRows)}
-        {legacyAreaSeasonRows.length > 0 && (
-          <p role="status" className="mx-5 mb-4 rounded-md border border-amber-300 bg-amber-50 p-3 text-[11px] text-amber-950">
-            {t.legacy}
-          </p>
-        )}
       </section>
 
       <section className="dns-card overflow-hidden">
