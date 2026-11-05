@@ -115,50 +115,58 @@ export async function loadPersistedOrderMatrix({
   const persistedLineIds = new Set<string>();
   const orderStatuses: Record<string, OrderStatus> = {};
 
-  await Promise.all(
-    organizations.map(async (organization) => {
-      const id = orderId(seasonId, category, organization.organizationId);
-      const snapshot = await getDoc(doc(db, 'ticketOrders', id));
-      if (snapshot.exists()) {
-        persistedOrderIds.add(id);
-        const status = snapshot.data().status;
-        orderStatuses[organization.organizationId] =
-          status === 'submitted' || status === 'confirmed' || status === 'fulfilled' || status === 'cancelled'
-            ? status
-            : 'draft';
-      } else {
-        orderStatuses[organization.organizationId] = 'draft';
-      }
-    }),
-  );
-
-  const cells = await Promise.all(
-    organizations.flatMap((organization) =>
-      items.map(async (item) => {
-        const id = lineId(
-          seasonId,
-          category,
-          organization.organizationId,
-          item.id,
-        );
-        const snapshot = await getDoc(doc(db, 'ticketOrderLines', id));
-        if (snapshot.exists()) {
-          persistedLineIds.add(id);
-          const quantity = snapshot.data().quantity;
-          return {
-            organizationId: organization.organizationId,
-            itemId: item.id,
-            quantity: typeof quantity === 'number' ? quantity : null,
-          };
-        }
-        return {
-          organizationId: organization.organizationId,
-          itemId: item.id,
-          quantity: null,
-        };
-      }),
-    ),
-  );
+  // Never read absent document IDs directly. For non-admin area accounts
+  // Firestore cannot authorize a missing document from resource.data.
+  // Query only documents whose reporting area and organization are known.
+  // Each query is constrained to the exact area in the authenticated matrix.
+  const cells: OrderMatrixDraft['cells'] = [];
+  await Promise.all(organizations.map(async (organization) => {
+    const reportingAreaId = organization.reportingAreaId;
+    if (!reportingAreaId) {
+      // No area mapping: do not attempt an unscoped query.
+      throw new Error('Missing reporting area for organization ' + organization.organizationId);
+    }
+    const [headers, lines] = await Promise.all([
+      getDocs(query(
+        collection(db, 'ticketOrders'),
+        where('seasonId', '==', seasonId),
+        where('category', '==', category),
+        where('organizationId', '==', organization.organizationId),
+        where('reportingAreaId', '==', reportingAreaId),
+      )),
+      getDocs(query(
+        collection(db, 'ticketOrderLines'),
+        where('seasonId', '==', seasonId),
+        where('organizationId', '==', organization.organizationId),
+        where('reportingAreaId', '==', reportingAreaId),
+      )),
+    ]);
+    const expectedOrderId = orderId(seasonId, category, organization.organizationId);
+    const header = headers.docs.find(item => item.id === expectedOrderId);
+    if (header) {
+      persistedOrderIds.add(header.id);
+      const status = header.data().status;
+      orderStatuses[organization.organizationId] =
+        status === 'submitted' || status === 'confirmed' || status === 'fulfilled' || status === 'cancelled'
+          ? status : 'draft';
+    } else {
+      orderStatuses[organization.organizationId] = 'draft';
+    }
+    const lineById = new Map(lines.docs
+      .filter(item => item.data().ticketOrderId === expectedOrderId)
+      .map(item => [item.id, item]));
+    for (const item of items) {
+      const id = lineId(seasonId, category, organization.organizationId, item.id);
+      const existing = lineById.get(id);
+      if (existing) persistedLineIds.add(id);
+      const quantity = existing?.data().quantity;
+      cells.push({
+        organizationId: organization.organizationId,
+        itemId: item.id,
+        quantity: typeof quantity === 'number' ? quantity : null,
+      });
+    }
+  }));
 
   return {
     draft: {

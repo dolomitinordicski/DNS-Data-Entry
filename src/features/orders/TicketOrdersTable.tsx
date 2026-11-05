@@ -356,6 +356,7 @@ export function TicketOrdersTable({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(false);
+  const [loadErrorDetail, setLoadErrorDetail] = useState('');
   const [shareId, setShareId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [ticketNumberingStart, setTicketNumberingStart] = useState(1);
@@ -396,6 +397,7 @@ export function TicketOrdersTable({
   async function loadAll() {
     setLoading(true);
     setError(false);
+    setLoadErrorDetail('');
 
     try {
       if (developmentMode) {
@@ -409,26 +411,36 @@ export function TicketOrdersTable({
         return;
       }
 
+      // Keep the failure boundary for each read: a single denied Firestore
+      // request must be diagnosable without exposing order contents.
+      const read = async <T,>(label: string, task: Promise<T>): Promise<T> => {
+        try { return await task; }
+        catch (error) {
+          const code = typeof error === 'object' && error !== null && 'code' in error
+            ? String((error as { code: unknown }).code) : 'unknown';
+          throw new Error(`${label} (${code})`, { cause: error });
+        }
+      };
       const [wristband, ticket, pocketfolder, sourceRows] = await Promise.all([
-        loadPersistedOrderMatrix({
+        read('wristband', loadPersistedOrderMatrix({
           seasonId,
           category: 'wristband',
           visibleOrganizationIds,
           organizationAreaById,
-        }),
-        loadPersistedOrderMatrix({
+        })),
+        read('ticket', loadPersistedOrderMatrix({
           seasonId,
           category: 'ticket',
           visibleOrganizationIds,
           organizationAreaById,
-        }),
-        loadPersistedOrderMatrix({
+        })),
+        read('pocketfolder', loadPersistedOrderMatrix({
           seasonId,
           category: 'pocketfolder',
           visibleOrganizationIds,
           organizationAreaById,
-        }),
-        loadPocketfolderSourceRows(seasonId),
+        })),
+        read('pocketfolder-source', loadPocketfolderSourceRows(seasonId)),
       ]);
 
       setMatrices({ wristband, ticket, pocketfolder });
@@ -436,6 +448,7 @@ export function TicketOrdersTable({
       setDirty({ wristband: false, ticket: false, pocketfolder: false });
     } catch (reason) {
       console.error('Order matrix load failed', reason);
+      setLoadErrorDetail(reason instanceof Error ? reason.message : 'unknown');
       setError(true);
     } finally {
       setLoading(false);
@@ -737,6 +750,7 @@ export function TicketOrdersTable({
       <section className="dns-state" data-state="error" role="alert">
         <div className="dns-state-icon" aria-hidden="true">!</div>
         <div className="dns-state-title">{t.error}</div>
+        {loadErrorDetail && <p className="mt-2 text-xs" role="status">{loadErrorDetail}</p>}
       </section>
     );
   }
