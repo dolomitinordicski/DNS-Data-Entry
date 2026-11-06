@@ -15,4 +15,5 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm run build
+      - run: npm run test:orders-scope
       - run: node --experimental-strip-types --test src/services/digitalPassInventory.test.ts
