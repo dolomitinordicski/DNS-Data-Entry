@@ -343,7 +343,7 @@ export function TicketOrdersTable({
   );
 
   const writableOrganizationIds = useMemo(
-    () => getOrganizationIdsByPermission(
+    () => orderOrganizationIds(
       developmentMode,
       devAreaTest,
       access,
