@@ -24,6 +24,8 @@ import {
   revokePublicOrderShare,
 } from '../../services/publicOrderShares';
 import { AreaOrderForm } from './AreaOrderForm';
+import { organizationAllows } from '../../services/organizationAccess';
+import { orderOrganizationIds } from './orderOrganizationScope';
 import { buildTicketNumbering, formatTicketNumber } from '../../services/ticketNumbering';
 import { dnsDataEntryCapabilities } from '../../services/capabilityRuntime';
 import { OrderPrintSheet } from './OrderPrintSheet';
@@ -271,39 +273,6 @@ function orgAreaIds(org: CanonicalRecord) {
     : [];
 }
 
-function getOrganizationIdsByPermission(
-  developmentMode: boolean,
-  devAreaTest: boolean,
-  access: DNSAccessContext | null,
-  organizations: CanonicalRecord[],
-  permission: 'ticketOrders.read' | 'ticketOrders.write',
-) {
-  const all = new Set(organizations.map((organization) => organization.id));
-
-  if ((developmentMode && !devAreaTest) || access?.isAdmin) return all;
-  if (!access?.profile?.active) return new Set<string>();
-
-  const scoped = new Set<string>();
-
-  for (const grant of access.grants) {
-    if (!grant.active || !grant.permissions.includes(permission)) continue;
-
-    if (grant.scopeType === 'network') return all;
-
-    if (grant.scopeType === 'organization') {
-      scoped.add(grant.scopeId);
-      continue;
-    }
-
-    if (grant.scopeType === 'reportingArea') {
-      organizations
-        .filter((organization) => orgAreaIds(organization).includes(grant.scopeId))
-        .forEach((organization) => scoped.add(organization.id));
-    }
-  }
-
-  return scoped;
-}
 
 export function TicketOrdersTable({
   language,
@@ -362,12 +331,13 @@ export function TicketOrdersTable({
   const [ticketNumberingStart, setTicketNumberingStart] = useState(1);
 
   const visibleOrganizationIds = useMemo(
-    () => getOrganizationIdsByPermission(
+    () => orderOrganizationIds(
       developmentMode,
       devAreaTest,
       access,
       organizations,
       'ticketOrders.read',
+      organizationAllows,
     ),
     [developmentMode, devAreaTest, access, organizations],
   );
@@ -379,6 +349,7 @@ export function TicketOrdersTable({
       access,
       organizations,
       'ticketOrders.write',
+      organizationAllows,
     ),
     [developmentMode, devAreaTest, access, organizations],
   );
