@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { dataEntryThemeParentOrigin } from './themeBridgePilot';
 import {
   initDNSFoundation,
   type DNSFoundationRuntimeHandle,
@@ -38,6 +39,9 @@ export function initDNSDataEntryFoundation(language?: Language) {
         enabled: true,
         mountSelector: '[data-dns-accessibility-mount]',
         storageKey: 'dns-accessibility-v1',
+        themeParentOrigin: typeof window !== 'undefined' && window.parent !== window
+          ? dataEntryThemeParentOrigin(window.location.search)
+          : undefined,
       },
     });
   } else if (language && foundation.getLanguage() !== language) {
