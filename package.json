@@ -12,7 +12,7 @@
     "test:theme-pilot": "node --experimental-strip-types --test src/services/themeBridgePilot.test.ts"
   },
   "dependencies": {
-    "firebase": "^12.3.0",
+    "firebase": "^13.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "@dolomitinordicski/dns-shared-data": "github:dolomitinordicski/dns-shared-data#foundation-v1.4.1",
