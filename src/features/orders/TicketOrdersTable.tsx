@@ -1131,7 +1131,7 @@ export function TicketOrdersTable({
                 const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' }));
                 const link = document.createElement('a'); link.href = url; link.download = 'dns-digital-pass-inventory-2026-27.json'; link.click();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
-              }}>{language === 'de' ? 'Digital Pass · Matrix exportieren (nicht freigegeben)' : 'Digital Pass · Esporta matrice (da approvare)'}</button>}
+              }}>{language === 'de' ? 'Digital Pass · Nummerierung exportieren' : 'Digital Pass · Esporta numerazione'}</button>}
               <label className="block w-full max-w-[220px]">
                 <span className="dns-kicker">{t.numberingStart}</span>
                 <input

@@ -31,3 +31,13 @@ DNS Data Entry mounts the shared Foundation accessibility runtime from `@dolomit
 ### Canonical navigation runtime
 
 DNS Data Entry uses `@dolomitinordicski/dns-shared-data/ui/navigation` for sticky metrics, scroll progress and responsive navigation geometry. The application only owns module selection and labels; structural navigation behavior must remain Foundation-owned.
+
+## Digital Pass: official numbering source
+
+The full persisted ticket matrix in DNS Core is the authoritative inventory: orderFormConfigs, orderCatalogItems, ticketOrders, ticketOrderLines and canonical organizations. Digital Pass [Shared Data PR #276](https://github.com/dolomitinordicski/dns-shared-data/pull/276) adds direct server-side reading of these same records; no separate inventory import or second approval of the official assignments is required.
+
+Numbering follows catalogue displayOrder and then the form's organizationIds, across all products. Digital Pass pins the revision and the start number used for physical printing. Later quantity changes must not silently reassign already printed numbers. The backend reads the global matrix and then enforces organization scope; it must not renumber a single area's filtered subset.
+
+The existing JSON export is an optional numbering export, not the activation source in data-entry mode. Its legacy approved:false field never authorizes sale, registration or cloud writes. The start-number field is currently UI state, restored from a published share where present: deployment configuration must match the actual printed start number.
+
+This integration does not change order saving, physical numbering, sales, roles or Firebase configuration. Cloud activation remains a separately authorized release.
